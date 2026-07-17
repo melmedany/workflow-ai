@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: workflow-ai
+    version: 1.0
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/workflow-ai
+    username: workflow-ai
+    password: workflow-ai
+
+  threads:
+    virtual:
+      enabled: true
+
+langchain4j:
+  providers:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      default-model: mistral
+      temperature: 0.7
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${OPENAI_API_KEY:not-configured}
+      default-model: gpt-4o-mini
+      temperature: 0.7
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:not-configured}
+      default-model: claude-haiku-4-5-20251001
+      temperature: 0.7
+
+workflow-ai:
+  providers:
+    bonzai:
+      base-url: ${BONZAI_BASE_URL:https://api-v2.bonzai.iodigital.com}
+      api-key: ${BONZAI_KEY:not-configured}
+      model: gemini-3.1-flash-image-preview
+      temperature: 0.7

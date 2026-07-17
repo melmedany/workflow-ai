@@ -1,0 +1,16 @@
+package io.workflowai.domain.workflow;
+
+public enum StageId {
+    PERSIST_USER_MESSAGE,
+    LOAD_MEMORY,
+    CLASSIFICATION,
+    ROUTING,
+    EXECUTE_WORKFLOW,
+    GENERATE_CLARIFICATION,
+    GENERATE_REDIRECT,
+    APPLY_REFUSE,
+    SELF_VERIFICATION,
+    PERSIST_RESPONSE,
+    PERSIST_MEMORY,
+    COMPLETE
+}

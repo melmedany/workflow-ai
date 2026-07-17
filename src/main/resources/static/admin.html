@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow AI — Agents Admin</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+    <nav class="top-nav" aria-label="Page navigation">
+        <a id="theme-toggle" class="theme-toggle" aria-label="Toggle light/dark mode">
+            <i data-lucide="sun"></i>
+        </a>
+    </nav>
+
+    <div class="container admin-container">
+        <header>
+            <a href="/" class="back-link admin-back"><i data-lucide="arrow-left"></i> Home</a>
+            <h1 class="logo">Agents Admin</h1>
+            <p class="tagline">Manage database-backed agent configuration</p>
+        </header>
+
+        <main class="admin-layout">
+            <section class="admin-panel">
+                <div class="admin-panel-header">
+                    <h2>Agents</h2>
+                    <a id="new-agent-btn" class="secondary-btn"><i data-lucide="plus"></i> New</a>
+                </div>
+                <div id="admin-agent-list" class="admin-agent-list">Loading agents...</div>
+            </section>
+
+            <form id="agent-form" class="admin-form">
+                <div class="admin-form-intro">
+                    <h2>Agent configuration</h2>
+                    <p>Choose an agent, select one of the supported providers and models, then enter list values one per line.</p>
+                </div>
+                <div class="checkbox-row">
+                    <label><input id="agent-enabled" type="checkbox"> Agent enabled</label>
+                </div>
+                <label>Agent ID
+                    <input id="agent-id" disabled>
+                </label>
+                <label>Display name
+                    <input id="display-name" type="text" required>
+                </label>
+                <label>Description
+                    <input id="description" type="text" required>
+                </label>
+                <div class="form-grid">
+                    <label>Providers
+                        <select id="provider" required></select>
+                        <span class="field-help">System-supported LLM provider for this agent.</span>
+                    </label>
+                    <label>Models
+                        <select id="model" required></select>
+                        <span class="field-help">Available models update when the provider changes.</span>
+                    </label>
+                    <label>Temperature
+                        <input id="temperature" type="number" min="0" max="2" step="0.1" required>
+                    </label>
+                    <label>Memory limit
+                        <input id="memory-limit" type="number" min="0" step="1" required>
+                    </label>
+                </div>
+                <div class="checkbox-row">
+                    <label><input id="memory-enabled" type="checkbox"> Memory enabled</label>
+                    <label><input id="validation-enabled" type="checkbox"> Validation enabled</label>
+                </div>
+                <label>Agent Prompt
+                    <textarea id="agent-prompt" rows="10" required></textarea>
+                    <span class="field-help">Instructions and guidelinesfor the agent.</span>
+                </label>
+                <label>Capabilities (one per line)
+                    <textarea id="capabilities" rows="5" required></textarea>
+                    <span class="field-help">Used by routing to decide which requests the agent can handle.</span>
+                </label>
+                <label>Greetings (one per line)
+                    <textarea id="greetings" rows="3" required></textarea>
+                    <span class="field-help">Shown as possible opening messages for this agent.</span>
+                </label>
+                <label>Refuse messages (one per line)
+                    <textarea id="refuse-messages" rows="3" required></textarea>
+                    <span class="field-help">Used when a request is outside this agent's allowed scope.</span>
+                </label>
+                <label>Redirect messages (one per line)
+                    <textarea id="redirect-messages" rows="3" required></textarea>
+                    <span class="field-help">Used when the user should be guided to another agent or capability.</span>
+                </label>
+                <label>Max retries
+                    <input id="max-retries" type="number" min="0" step="1" required>
+                </label>
+                <div id="admin-status" class="admin-status"></div>
+                <div class="form-actions">
+                    <button type="submit" id="save-agent-btn">Save agent</button>
+                    <button type="button" id="delete-agent-btn" class="danger-btn">Delete</button>
+                </div>
+            </form>
+        </main>
+    </div>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="./js/helpers.js"></script>
+    <script src="./js/agents.js"></script>
+</body>
+</html>

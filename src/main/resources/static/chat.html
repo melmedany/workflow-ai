@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow AI</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body class="chat-page">
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-top-bar">
+                <a href="/" class="back-link"><i data-lucide="arrow-left"></i> Home</a>
+                <a id="theme-toggle" class="theme-toggle" aria-label="Toggle light/dark mode">
+                    <i data-lucide="sun"></i>
+                </a>
+            </div>
+            <div id="agent-header" class="agent-header-info">
+                <span id="agent-avatar" class="agent-avatar-sm">?</span>
+                <div>
+                    <h2 id="agent-name">Loading...</h2>
+                    <p id="agent-desc">Loading...</p>
+                </div>
+            </div>
+        </div>
+        <button id="new-chat-btn" class="new-chat-btn"><i data-lucide="plus"></i> New Chat</button>
+        <div id="conversation-list" class="conversation-list">
+            <div class="conversation-item">Loading conversations...</div>
+        </div>
+    </aside>
+
+    <main class="chat-area">
+        <div id="messages" class="messages"></div>
+        <div class="input-area">
+            <textarea
+                id="input"
+                placeholder="Ask something... (Shift+Enter for newline)"
+                rows="3"
+                autofocus></textarea>
+            <button id="send-btn">Send</button>
+        </div>
+    </main>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.0/marked.min.js"></script>
+    <script src="./js/helpers.js"></script>
+    <script src="./js/chat.js"></script>
+</body>
+</html>

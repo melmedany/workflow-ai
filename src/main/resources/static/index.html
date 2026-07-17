@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow AI</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+    <nav class="top-nav" aria-label="Page navigation">
+        <a class="nav-button" aria-label="Manage Agents" href="./admin.html">
+            <i data-lucide="cog"></i>
+        </a>
+        <a id="theme-toggle" class="theme-toggle" aria-label="Toggle light/dark mode">
+            <i data-lucide="sun"></i>
+        </a>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1 class="logo">Workflow AI</h1>
+            <p class="tagline">Multi-Agent AI Productivity System</p>
+        </header>
+
+        <main>
+            <ul id="agents-list" class="agents-list">
+                <li>Loading agents...</li>
+            </ul>
+        </main>
+    </div>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="./js/helpers.js"></script>
+    <script src="./js/index.js"></script>
+</body>
+</html>
