@@ -1,0 +1,18 @@
+services:
+  workflow-ai-database:
+    image: postgres:16
+    container_name: workflow-ai-database
+    platform: linux/arm64
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: workflow-ai
+      POSTGRES_PASSWORD: workflow-ai
+      POSTGRES_DB: workflow-ai
+    volumes:
+      - workflow-ai-database:/var/lib/postgresql/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  workflow-ai-database:
