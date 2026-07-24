@@ -3,8 +3,8 @@ package io.workflowai.integration;
 import io.workflowai.domain.model.Conversation;
 import io.workflowai.domain.model.ConversationMessage;
 import io.workflowai.domain.model.ConversationMessageRole;
-import io.workflowai.ports.outbound.ConversationStoragePort;
-import io.workflowai.ports.outbound.MessageStoragePort;
+import io.workflowai.ports.outbound.ConversationStorage;
+import io.workflowai.ports.outbound.MessageStorage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
@@ -23,20 +23,20 @@ class ConversationPersistenceTest extends IntegrationBase {
     private final UUID AGENT_ID_2 = UUID.fromString("12e4ede9-b954-4428-96c5-8051bea1c225");
 
     @Autowired
-    ConversationStoragePort conversationStoragePort;
+    ConversationStorage conversationStorage;
 
     @Autowired
-    MessageStoragePort messageStoragePort;
+    MessageStorage messageStorage;
 
     @Test
     void createAndRetrieveConversation() {
-        Conversation created = conversationStoragePort.create(AGENT_ID_1, "Test conversation");
+        Conversation created = conversationStorage.create(AGENT_ID_1, "Test conversation");
 
         assertThat(created.id()).isNotNull();
         assertThat(created.agentId()).isEqualTo(AGENT_ID_1);
         assertThat(created.title()).isEqualTo("Test conversation");
 
-        Optional<Conversation> found = conversationStoragePort.findByAgentAndId(AGENT_ID_1, created.id());
+        Optional<Conversation> found = conversationStorage.findByAgentAndId(AGENT_ID_1, created.id());
 
         assertThat(found).isPresent();
         assertThat(found.get().id()).isEqualTo(created.id());
@@ -44,10 +44,10 @@ class ConversationPersistenceTest extends IntegrationBase {
 
     @Test
     void listConversationsByAgent() {
-        conversationStoragePort.create(AGENT_ID_1, "Agent conv 1");
-        conversationStoragePort.create(AGENT_ID_1, "Agent conv 2");
+        conversationStorage.create(AGENT_ID_1, "Agent conv 1");
+        conversationStorage.create(AGENT_ID_1, "Agent conv 2");
 
-        List<Conversation> conversations = conversationStoragePort.findByAgent(AGENT_ID_1);
+        List<Conversation> conversations = conversationStorage.findByAgent(AGENT_ID_1);
 
         assertThat(conversations).hasSizeGreaterThanOrEqualTo(2);
         assertThat(conversations).allMatch(c -> AGENT_ID_1.equals(c.agentId()));
@@ -55,14 +55,14 @@ class ConversationPersistenceTest extends IntegrationBase {
 
     @Test
     void saveAndRetrieveMessages() {
-        Conversation conversation = conversationStoragePort.create(AGENT_ID_1, "Message test");
+        Conversation conversation = conversationStorage.create(AGENT_ID_1, "Message test");
 
-        messageStoragePort.save(conversation.id(), AGENT_ID_1,
-                new ConversationMessage(ConversationMessageRole.USER, "Hello"));
-        messageStoragePort.save(conversation.id(), AGENT_ID_1,
-                new ConversationMessage(ConversationMessageRole.AGENT, "Hi there"));
+        messageStorage.save(conversation.id(), AGENT_ID_1,
+                new ConversationMessage(ConversationMessageRole.USER, "Hello", true));
+        messageStorage.save(conversation.id(), AGENT_ID_1,
+                new ConversationMessage(ConversationMessageRole.AGENT, "Hi there", true));
 
-        List<ConversationMessage> messages = messageStoragePort.findByAgentIdAndConversationId(conversation.agentId(), conversation.id());
+        List<ConversationMessage> messages = messageStorage.findByAgentIdAndConversationId(conversation.agentId(), conversation.id());
 
         assertThat(messages).hasSize(2);
         assertThat(messages.get(0).role()).isEqualTo(ConversationMessageRole.USER);
@@ -72,22 +72,22 @@ class ConversationPersistenceTest extends IntegrationBase {
 
     @Test
     void messagesAreIsolatedPerConversation() {
-        Conversation conversation1 = conversationStoragePort.create(AGENT_ID_1, "Conversation 1");
-        Conversation conversation2 = conversationStoragePort.create(AGENT_ID_2, "Conversation 2");
+        Conversation conversation1 = conversationStorage.create(AGENT_ID_1, "Conversation 1");
+        Conversation conversation2 = conversationStorage.create(AGENT_ID_2, "Conversation 2");
 
-        messageStoragePort.save(conversation1.id(), AGENT_ID_1,
-                new ConversationMessage(ConversationMessageRole.USER, "Conversation1 message"));
-        messageStoragePort.save(conversation2.id(), AGENT_ID_2,
-                new ConversationMessage(ConversationMessageRole.USER, "Conversation2 message"));
+        messageStorage.save(conversation1.id(), AGENT_ID_1,
+                new ConversationMessage(ConversationMessageRole.USER, "Conversation1 message", true));
+        messageStorage.save(conversation2.id(), AGENT_ID_2,
+                new ConversationMessage(ConversationMessageRole.USER, "Conversation2 message", true));
 
-        assertThat(messageStoragePort.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id()))
+        assertThat(messageStorage.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id()))
                 .hasSize(1);
-        assertThat(messageStoragePort.findByAgentIdAndConversationId(conversation2.agentId(), conversation2.id()))
+        assertThat(messageStorage.findByAgentIdAndConversationId(conversation2.agentId(), conversation2.id()))
                 .hasSize(1);
-        assertThat(messageStoragePort.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id())
+        assertThat(messageStorage.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id())
                 .getFirst().content())
                 .isEqualTo("Conversation1 message");
-        assertThat(messageStoragePort.findByAgentIdAndConversationId(conversation2.agentId(), conversation2.id())
+        assertThat(messageStorage.findByAgentIdAndConversationId(conversation2.agentId(), conversation2.id())
                 .getFirst().content())
                 .isEqualTo("Conversation2 message");
     }

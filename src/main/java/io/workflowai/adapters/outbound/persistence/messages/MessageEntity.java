@@ -36,6 +36,9 @@ public class MessageEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "add_to_memory", nullable = false)
+    private Boolean addToMemory;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -48,6 +51,7 @@ public class MessageEntity {
         this.agentId = agentId;
         this.role = message.role();
         this.content = message.content();
+        this.addToMemory = message.addToMemory();
     }
 
     public UUID id() {
@@ -68,6 +72,10 @@ public class MessageEntity {
 
     public String content() {
         return content;
+    }
+
+    public boolean addToMemory() {
+        return addToMemory;
     }
 
     public Instant createdAt() {

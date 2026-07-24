@@ -1,26 +1,20 @@
 TRUNCATE agents CASCADE;
 
-INSERT INTO agents (id, details, llm_config, policy_config)
+INSERT INTO agents (id, details, llm_properties, workflow_policy_properties)
 VALUES ('c7d5842d-cece-490b-9fcc-c6865611e94b',
         '{
           "displayName": "Integration Test Agent",
           "description": "Agent for integration testing",
-          "avatarClass": "",
           "enabled": true
         }'::jsonb,
         '{
-          "provider": "ollama",
-          "model": "deepseek-r1:7b",
+          "providerId": "Ollama",
+          "model": "deepseek-r1:8b",
           "agentPrompt": "",
           "temperature": 0.7,
-          "memoryEnabled": false,
-          "validationEnabled": false,
-          "memoryLimit": 10
+          "memoryEnabled": false
         }'::jsonb,
         '{
-          "capabilities": [],
-          "greetings": ["Hello! How can I help you?"],
-          "refuseMessages": ["I cannot help with that."],
-          "redirectMessages": ["Let me redirect you."],
-          "maxRetries": 1
+          "supportedCapabilities": [],
+          "fallbackFailedToProcess": "I cannot process that right now."
         }'::jsonb);

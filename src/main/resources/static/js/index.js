@@ -20,13 +20,14 @@ const loadAgents = async function() {
             const name = agent.displayName || id || 'Agent';
             const desc = agent.description || '';
             const tags = Array.isArray(agent.tags) ? agent.tags.join(' · ') : '';
+            const llmBadge = llmBadgeHtml(agent.llmProviderId, agent.model);
 
             const li = document.createElement('li');
             li.innerHTML =
                 '<a class="agent-card" href="/chat.html?agentId=' + encodeURIComponent(id) + '">' +
                 '<div class="agent-avatar">' + name.charAt(0) + '</div>' +
                 '<div class="agent-info">' +
-                '<h2>' + name + '</h2>' +
+                '<div class="agent-name-row"><h2>' + name + '</h2>' + llmBadge + '</div>' +
                 '<p>' + desc + '</p>' +
                 (tags ? '<span class="agent-tag">' + tags + '</span>' : '') +
                 '</div>' +

@@ -17,21 +17,55 @@ langchain4j:
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       default-model: mistral
-      temperature: 0.7
+      default-temperature: 0.7
     openai:
       base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
       api-key: ${OPENAI_API_KEY:not-configured}
       default-model: gpt-4o-mini
-      temperature: 0.7
+      default-temperature: 0.7
     anthropic:
+      base-url: ${ANTHROPIC_BASE_URL:not-configured}
       api-key: ${ANTHROPIC_API_KEY:not-configured}
       default-model: claude-haiku-4-5-20251001
-      temperature: 0.7
+      default-temperature: 0.7
 
 workflow-ai:
+  stages:
+    stages:
+      - stage-id: CLASSIFICATION
+        llm-provider-id: Ollama
+        model: llama3.2:3b
+        temperature: 0.2
+      - stage-id: GENERATE_CLARIFICATION
+        llm-provider-id: Ollama
+        model: llama3.2:3b
+        temperature: 0.2
+      - stage-id: GENERATE_REDIRECT
+        llm-provider-id: Ollama
+        model: llama3.2:3b
+        temperature: 0.2
+      - stage-id: GENERATE_GREETING
+        llm-provider-id: Ollama
+        model: llama3.2:3b
+        temperature: 0.2
+      - stage-id: GENERATE_REFUSAL
+        llm-provider-id: Ollama
+        model: llama3.2:3b
+        temperature: 0.2
+  guardrails:
+    input-blocked-terms:
+      - "ignore previous instructions"
+      - "ignore all previous instructions"
+      - "disregard your instructions"
+      - "you are now"
+      - "reveal your system prompt"
+      - "jailbreak"
+      - ...
+    output-blocked-terms:
+      - "pii"
   providers:
     bonzai:
       base-url: ${BONZAI_BASE_URL:https://api-v2.bonzai.iodigital.com}
-      api-key: ${BONZAI_KEY:not-configured}
-      model: gemini-3.1-flash-image-preview
-      temperature: 0.7
+      api-key: ${BONZAI_API_KEY:not-configured}
+      default-model: gemini-3.1-flash
+      default-temperature: 0.7

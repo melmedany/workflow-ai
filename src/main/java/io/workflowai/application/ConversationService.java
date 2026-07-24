@@ -3,53 +3,53 @@ package io.workflowai.application;
 import io.workflowai.domain.exceptions.ConversationNotFoundException;
 import io.workflowai.domain.model.Conversation;
 import io.workflowai.domain.model.ConversationMessage;
-import io.workflowai.ports.inbound.ConversationPort;
-import io.workflowai.ports.outbound.ConversationStoragePort;
-import io.workflowai.ports.outbound.MessageStoragePort;
+import io.workflowai.ports.inbound.ConversationProvider;
+import io.workflowai.ports.outbound.ConversationStorage;
+import io.workflowai.ports.outbound.MessageStorage;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
-public class ConversationService implements ConversationPort {
+public class ConversationService implements ConversationProvider {
 
-    private final ConversationStoragePort conversationStoragePort;
-    private final MessageStoragePort messageStoragePort;
+    private final ConversationStorage conversationStorage;
+    private final MessageStorage messageStorage;
 
-    public ConversationService(ConversationStoragePort conversationStoragePort, MessageStoragePort messageStoragePort) {
-        this.conversationStoragePort = conversationStoragePort;
-        this.messageStoragePort = messageStoragePort;
+    public ConversationService(ConversationStorage conversationStorage, MessageStorage messageStorage) {
+        this.conversationStorage = conversationStorage;
+        this.messageStorage = messageStorage;
     }
 
     @Override
     public Conversation createConversation(UUID agentId, String firstMessage) {
         String title = firstMessage.length() > 60 ? firstMessage.substring(0, 60) + "..." : firstMessage;
-        return conversationStoragePort.create(agentId, title);
+        return conversationStorage.create(agentId, title);
     }
 
 
     @Override
     public Conversation getConversation(UUID agent, UUID id) {
-        return conversationStoragePort.findByAgentAndId(agent, id).orElseThrow(() -> new ConversationNotFoundException(agent, id));
+        return conversationStorage.findByAgentAndId(agent, id).orElseThrow(() -> new ConversationNotFoundException(agent, id));
     }
 
 
     @Override
     public List<Conversation> getConversationsForAgent(UUID agent) {
-        return conversationStoragePort.findByAgent(agent);
+        return conversationStorage.findByAgent(agent);
     }
 
 
     @Override
     public List<ConversationMessage> getMessages(UUID agentId, UUID conversationId) {
-        return messageStoragePort.findByAgentIdAndConversationId(agentId, conversationId);
+        return messageStorage.findByAgentIdAndConversationId(agentId, conversationId);
     }
 
 
     @Override
     public void deleteConversation(UUID agentId, UUID id) {
         // TODO handle not found conversation
-        conversationStoragePort.delete(agentId, id);
+        conversationStorage.delete(agentId, id);
     }
 }

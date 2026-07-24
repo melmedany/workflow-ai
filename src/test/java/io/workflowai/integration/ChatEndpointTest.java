@@ -2,6 +2,9 @@ package io.workflowai.integration;
 
 import io.restassured.http.ContentType;
 import io.workflowai.adapters.inbound.rest.dto.ConversationResponse;
+import io.workflowai.domain.model.ConversationMessage;
+import io.workflowai.domain.model.ConversationMessageRole;
+import io.workflowai.ports.outbound.MessageStorage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
@@ -12,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
 
@@ -23,6 +27,23 @@ class ChatEndpointTest extends IntegrationBase {
 
     @Autowired
     private JsonMapper jsonMapper;
+
+    @Autowired
+    private MessageStorage messageStorage;
+
+    @Test
+    void chat_persistsExactlyOneUserAndOneAgentMessagePerTurn() {
+        ConversationResponse conversation = newConversation(AGENT_ID);
+
+        List<ConversationMessage> messages =
+                messageStorage.findByAgentIdAndConversationId(conversation.agentId(), conversation.id());
+
+        long userMessages = messages.stream().filter(m -> m.role() == ConversationMessageRole.USER).count();
+        long agentMessages = messages.stream().filter(m -> m.role() == ConversationMessageRole.AGENT).count();
+
+        assertThat(userMessages).isEqualTo(1);
+        assertThat(agentMessages).isEqualTo(1);
+    }
 
     @Test
     void getAgents_returnsAllAgents() {

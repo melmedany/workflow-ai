@@ -1,16 +1,18 @@
 package io.workflowai.adapters.inbound.rest.dto;
 
-import io.workflowai.domain.model.Conversation;
 import io.workflowai.domain.agents.Agent;
+import io.workflowai.domain.model.Conversation;
 import io.workflowai.domain.model.ConversationMessage;
 
 public class Mappers {
     public static AgentInfo toAgentInfo(Agent agent) {
         return new AgentInfo(
-                agent.getConfig().id(),
-                agent.getConfig().displayName(),
-                agent.getConfig().description(),
-                agent.tags()
+                agent.properties().id(),
+                agent.properties().displayName(),
+                agent.properties().description(),
+                agent.tags(),
+                agent.properties().llmProviderId().name(),
+                agent.properties().model()
         );
     }
 

@@ -57,6 +57,10 @@ public class AgentMemoryEntity {
         return content;
     }
 
+    public void replaceContent(String content) {
+        this.content = content;
+    }
+
     public Instant createdAt() {
         return createdAt;
     }

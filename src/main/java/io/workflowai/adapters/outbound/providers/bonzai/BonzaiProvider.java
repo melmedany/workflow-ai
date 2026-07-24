@@ -1,8 +1,10 @@
 package io.workflowai.adapters.outbound.providers.bonzai;
 
 import io.workflowai.adapters.outbound.providers.AbstractOpenAiProvider;
+import io.workflowai.application.LLMProviderId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -12,7 +14,6 @@ public class BonzaiProvider extends AbstractOpenAiProvider {
 
     private static final Logger log = LoggerFactory.getLogger(BonzaiProvider.class);
 
-    private final BonzaiProperties properties;
     // TODO make configurable
     private static final Set<String> SUPPORTED_MODELS = Set.of(
             "claude-haiku-4-5", "claude-sonnet-4-6", "claude-sonnet-5",
@@ -24,21 +25,15 @@ public class BonzaiProvider extends AbstractOpenAiProvider {
             "gpt-4.1-nano", "o1", "o3", "o3-mini", "o4-mini");
 
     public BonzaiProvider(BonzaiProperties properties) {
-        this.properties = properties;
-        super(properties.baseUrl(), properties.apiKey(), properties.model(), properties.temperature());
+        super(properties.baseUrl(), properties.apiKey(), properties.defaultModel(), properties.defaultTemperature());
         if (!properties.isConfigured()) {
-            log.warn("Bonzai api is not fully configured");
+            log.warn("[{}] api is not fully configured", getId());
         }
     }
 
     @Override
-    public String getProviderName() {
-        return "bonzai";
-    }
-
-    @Override
-    public boolean isConfigured() {
-        return properties.isConfigured();
+    public LLMProviderId getId() {
+        return LLMProviderId.Bonzai;
     }
 
     @Override
@@ -49,5 +44,17 @@ public class BonzaiProvider extends AbstractOpenAiProvider {
     @Override
     public Set<String> supportedModels() {
         return SUPPORTED_MODELS;
+    }
+
+    @ConfigurationProperties(prefix = "workflow-ai.providers.bonzai")
+    public record BonzaiProperties(String baseUrl, String apiKey, String defaultModel, double defaultTemperature) {
+
+        public boolean isConfigured() {
+            return isConfigured(baseUrl) && isConfigured(apiKey);
+        }
+
+        private static boolean isConfigured(String value) {
+            return value != null && !"not-configured".equals(value) && !value.isBlank();
+        }
     }
 }

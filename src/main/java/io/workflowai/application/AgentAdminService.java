@@ -1,28 +1,29 @@
 package io.workflowai.application;
 
 import io.workflowai.domain.exceptions.AgentNotFoundException;
-import io.workflowai.domain.model.AgentDefinition;
-import io.workflowai.domain.model.ProviderOption;
-import io.workflowai.ports.inbound.AgentAdminPort;
-import io.workflowai.ports.outbound.AgentDefinitionStoragePort;
+import io.workflowai.domain.agents.AgentDefinition;
+import io.workflowai.ports.inbound.AgentAdminManager;
+import io.workflowai.ports.outbound.AgentDefinitionStorage;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
-public class AgentAdminService implements AgentAdminPort {
-    private final AgentDefinitionStoragePort storagePort;
-    private final ProviderRegistry providerRegistry;
+public class AgentAdminService implements AgentAdminManager {
+    private final AgentDefinitionStorage storagePort;
+    private final LLMProviderRegistry llmProviderRegistry;
 
-    public AgentAdminService(AgentDefinitionStoragePort storagePort, ProviderRegistry providerRegistry) {
+    public AgentAdminService(AgentDefinitionStorage storagePort, LLMProviderRegistry llmProviderRegistry) {
         this.storagePort = storagePort;
-        this.providerRegistry = providerRegistry;
+        this.llmProviderRegistry = llmProviderRegistry;
     }
 
     @Override
-    public List<ProviderOption> supportedProviders() {
-        return providerRegistry.supportedOptions();
+    public Map<LLMProviderId, Set<String>> supportedLLMProviders() {
+        return llmProviderRegistry.supportedLLMProvider();
     }
 
     @Override

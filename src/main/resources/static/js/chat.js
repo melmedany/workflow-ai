@@ -29,6 +29,16 @@ async function init() {
         document.getElementById('agent-desc').textContent = agent.description || '';
         document.getElementById('agent-avatar').textContent = name.charAt(0);
 
+        const badge = document.getElementById('agent-llm-badge');
+        const badgeLabel = llmBadgeLabel(agent.llmProviderId, agent.model);
+        if (badgeLabel) {
+            badge.textContent = badgeLabel;
+            badge.title = badgeLabel;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+
         await loadConversations();
 
         if (currentConversationId && currentConversationId !== 'NEW_CONVERSATION') {
@@ -66,7 +76,7 @@ async function loadConversations() {
             deleteBtn.className = 'delete-btn';
             deleteBtn.title = 'Delete conversation';
             deleteBtn.innerHTML = '<i data-lucide="trash-2"></i>';
-            deleteBtn.onclick = (e) => deleteConversation(c.id, item);
+            deleteBtn.onclick = (_) => deleteConversation(c.id, item);
 
             item.appendChild(title);
             item.appendChild(deleteBtn);
@@ -95,6 +105,7 @@ async function deleteConversation(id) {
     });
     if (!response.ok) throw new Error(`Failed to delete: ${response.status}`);
     await loadConversations()
+    window.location.href = `/chat.html?agentId=${agentId}`;
 }
 
 async function newConversation() {
@@ -197,33 +208,33 @@ async function sendMessage() {
 
             for (const raw of events) {
                 const lines = raw.split('\n');
-                const eventType = lines.find(l => l.startsWith('event:'))?.slice(6).trim() ?? 'token';
+                const eventType = EventType.fromString(lines.find(l => l.startsWith('event:'))?.slice(6).trim());
                 const dataLine = lines.find(l => l.startsWith('data:'));
                 if (!dataLine) continue;
                 const data = dataLine.slice(5);
 
                 switch (eventType) {
-                    case 'token':
+                    case EventType.TOKEN:
                         fullText += data;
                         content.innerHTML = marked.parse(fullText);
                         scrollToBottom();
                         break;
-                    case 'stage':
+                    case EventType.STAGE:
                         try {
                             renderStage(JSON.parse(data), stageList, summary, ++stageCount);
                         } catch {
                         }
                         break;
-                    case 'decision':
+                    case EventType.DECISION:
                         try {
                             renderDecision(JSON.parse(data), stageList);
                         } catch {
                         }
                         break;
-                    case 'memory_updated':
+                    case EventType.MEMORY_UPDATED:
                         renderSystemStage('Memory updated', stageList);
                         break;
-                    case 'conversation_created':
+                    case EventType.CONVERSATION_CREATED:
                         try {
                             const conv = JSON.parse(data);
                             currentConversationId = conv.id;
@@ -232,7 +243,7 @@ async function sendMessage() {
                         } catch {
                         }
                         break;
-                    case 'error':
+                    case EventType.ERROR:
                         try {
                             const e = JSON.parse(data);
                             appendError(content, e.message || 'Unknown error');
@@ -299,7 +310,7 @@ function renderDecision(decision, stageList) {
     let item = stageList.querySelector('[data-stage="decision"]');
     if (!item) {
         item = document.createElement('div');
-        item.dataset.stage = 'decision';
+        item.dataset.stage = EventType.DECISION;
         item.className = 'stage-item stage-decision';
         stageList.appendChild(item);
     }
@@ -377,6 +388,39 @@ function resizeComposer() {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 180) + 'px';
 }
+
+const EventType =  {
+    CONVERSATION_CREATED: 'Conversation Created',
+    DECISION: 'Decision',
+    TOKEN: 'Token',
+    RESPONSE_COMPLETED: 'Response Completed',
+    MEMORY_UPDATED: 'Memory Updated',
+    CONVERSATION_COMPLETED: 'Conversation Completed',
+    ERROR: 'Error',
+    STAGE: 'Stage',
+    fromString: function (string) {
+        switch (string) {
+            case 'CONVERSATION_CREATED':
+                return this.CONVERSATION_CREATED;
+            case 'DECISION':
+                return this.DECISION;
+            case 'TOKEN':
+                return this.TOKEN;
+            case 'RESPONSE_COMPLETED':
+                return this.RESPONSE_COMPLETED;
+            case 'MEMORY_UPDATED':
+                return this.MEMORY_UPDATED;
+            case 'CONVERSATION_COMPLETED':
+                return this.CONVERSATION_COMPLETED;
+            case 'ERROR':
+                return this.ERROR;
+            case 'STAGE':
+                return this.STAGE;
+            default:
+                throw new Error(`Unknown event type: ${string}`);
+        }
+    }
+};
 
 // ── Events ────────────────────────────────────────────────────────────────
 

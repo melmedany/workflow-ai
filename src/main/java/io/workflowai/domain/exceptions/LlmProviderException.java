@@ -1,20 +1,14 @@
 package io.workflowai.domain.exceptions;
 
+import io.workflowai.application.LLMProviderId;
+
 public class LlmProviderException extends DomainException {
 
-    private final String providerName;
-
-    public LlmProviderException(String providerName, String message) {
-        super("Provider [%s]: %s".formatted(providerName, message));
-        this.providerName = providerName;
+    public LlmProviderException(LLMProviderId providerId, String message) {
+        this(providerId, message, null);
     }
 
-    public LlmProviderException(String providerName, String message, Throwable cause) {
-        super("Provider [%s]: %s".formatted(providerName, message), cause);
-        this.providerName = providerName;
-    }
-
-    public String getProviderName() {
-        return providerName;
+    public LlmProviderException(LLMProviderId providerId, String message, Throwable cause) {
+        super("Provider [%s]: %s".formatted(providerId, message), cause);
     }
 }

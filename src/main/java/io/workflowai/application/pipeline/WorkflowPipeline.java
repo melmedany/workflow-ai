@@ -1,26 +1,30 @@
 package io.workflowai.application.pipeline;
 
-import io.workflowai.domain.workflow.DecisionMode;
-import io.workflowai.domain.workflow.PipelineEvent;
-import io.workflowai.domain.workflow.ResponseValidationPolicy;
-import io.workflowai.domain.workflow.StageId;
-import io.workflowai.domain.workflow.WorkflowPrompts;
-import io.workflowai.domain.workflow.WorkflowPolicy;
+import io.workflowai.adapters.DefaultStageLabelProvider;
+import io.workflowai.application.LLMProviderRegistry;
+import io.workflowai.application.StagesProperties;
 import io.workflowai.domain.exceptions.ClassificationException;
+import io.workflowai.domain.exceptions.PipelineStageException;
 import io.workflowai.domain.exceptions.WorkflowExecutionException;
-import io.workflowai.domain.model.AgentConfig;
+import io.workflowai.domain.model.AgentProperties;
 import io.workflowai.domain.model.AgentRequest;
 import io.workflowai.domain.model.ConversationMessage;
 import io.workflowai.domain.model.ConversationMessageRole;
-import io.workflowai.domain.model.LlmRequest;
+import io.workflowai.domain.model.LLMRequest;
 import io.workflowai.domain.model.RoutingDecision;
-import io.workflowai.ports.outbound.AgentMemoryStoragePort;
-import io.workflowai.ports.outbound.LlmProviderPort;
-import io.workflowai.ports.outbound.MessageStoragePort;
+import io.workflowai.domain.workflow.GuardrailChecker;
+import io.workflowai.domain.workflow.PipelineEvent;
+import io.workflowai.domain.workflow.StageId;
+import io.workflowai.domain.workflow.response.ResponseValidator;
+import io.workflowai.domain.workflow.response.ValidationResult;
+import io.workflowai.ports.outbound.AgentMemoryStorage;
+import io.workflowai.ports.outbound.LLLMProvider;
+import io.workflowai.ports.outbound.MessageStorage;
+import io.workflowai.ports.outbound.NotificationChannel;
+import io.workflowai.ports.outbound.RunHistoryPort;
 import org.bsc.langgraph4j.CompiledGraph;
-import org.bsc.langgraph4j.StateGraph;
-import org.bsc.langgraph4j.action.AsyncEdgeAction;
-import org.bsc.langgraph4j.action.AsyncNodeAction;
+import org.bsc.langgraph4j.GraphRepresentation;
+import org.bsc.langgraph4j.action.NodeAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
@@ -28,380 +32,485 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static io.workflowai.application.StagesProperties.StageProperties;
+import static io.workflowai.domain.workflow.WorkflowPrompts.CLASSIFICATION_SYSTEM_PROMPT;
+import static io.workflowai.domain.workflow.WorkflowPrompts.GUARDRAIL_FALLBACK_MESSAGE;
+import static io.workflowai.domain.workflow.WorkflowPrompts.clarificationPrompt;
+import static io.workflowai.domain.workflow.WorkflowPrompts.classificationPrompt;
+import static io.workflowai.domain.workflow.WorkflowPrompts.greetingPrompt;
+import static io.workflowai.domain.workflow.WorkflowPrompts.memoryCompactionPrompt;
+import static io.workflowai.domain.workflow.WorkflowPrompts.redirectPrompt;
+import static io.workflowai.domain.workflow.WorkflowPrompts.refusalPrompt;
+import static io.workflowai.domain.workflow.WorkflowPrompts.retryPrompt;
+import static io.workflowai.domain.workflow.WorkflowPrompts.withResponseContractInstructions;
 
 public class WorkflowPipeline {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowPipeline.class);
+    private static final long DEFAULT_TIMEOUT_SECONDS = 300;
 
-    private final AgentConfig agentConfig;
-    private final LlmProviderPort llmProvider;
-    private final MessageStoragePort messageStoragePort;
-    private final AgentMemoryStoragePort agentMemoryStoragePort;
-    private final WorkflowPolicy policy;
-    private final StageLabelProvider labelProvider;
+    private final AgentProperties agentProperties;
+    private final LLMProviderRegistry llmProviderRegistry;
+    private final MessageStorage messageStorage;
+    private final AgentMemoryStorage agentMemoryStorage;
+    private final RunHistoryPort runHistoryPort;
+    private final List<NotificationChannel> notificationChannels;
+    private final GuardrailChecker guardrailChecker;
+    private final DefaultStageLabelProvider labelProvider;
+    private final Map<StageId, StageProperties> stagePropertiesMap;
+    private final ResponseValidator responseValidator;
     private final JsonMapper jsonMapper;
-    private final CompiledGraph<WorkflowContext> graph;
 
-    // Keyed by per-execution runId, NOT conversationId. Two concurrent invocations for the
-    // same conversation (double-submit, caller-side retry, etc.) must not share a consumer —
-    // keying by conversationId previously let one run's consumer be overwritten/removed by
-    // another run of the same conversation, causing cross-talk or a NoSuchElement on consumer(state).
-    // REQUIRES: WorkflowContext must expose a KEY_RUN_ID channel + a `UUID runId()` accessor,
-    // populated the same way KEY_CONVERSATION_ID / conversationId() already are. Add there:
-    //   String KEY_RUN_ID = "runId";
-    //   UUID runId() { return (UUID) data().get(KEY_RUN_ID); } // always present, never optional
+    private CompiledGraph<WorkflowContext> graph;
+
+    /**
+     * Keyed by per-execution runId, NOT conversationId. Two concurrent invocations for the
+     * same conversation (double-submit, caller-side retry, etc.) must not share a consumer —
+     * keying by conversationId previously let one run's consumer be overwritten/removed by
+     * another run of the same conversation, causing cross-talk or a NoSuchElement on consumer(state).
+     */
     private final ConcurrentHashMap<UUID, Consumer<PipelineEvent>> activeConsumers = new ConcurrentHashMap<>();
 
     public WorkflowPipeline(
-            AgentConfig agentConfig,
-            LlmProviderPort llmProvider,
-            MessageStoragePort messageStoragePort,
-            AgentMemoryStoragePort agentMemoryStoragePort,
-            WorkflowPolicy policy,
-            StageLabelProvider labelProvider,
+            AgentProperties agentProperties,
+            LLMProviderRegistry llmProviderRegistry,
+            StagesProperties stagesProperties,
+            MessageStorage messageStorage,
+            AgentMemoryStorage agentMemoryStorage,
+            RunHistoryPort runHistoryPort,
+            List<NotificationChannel> notificationChannels,
+            GuardrailChecker guardrailChecker,
             JsonMapper jsonMapper) {
-        this.agentConfig = agentConfig;
-        this.llmProvider = llmProvider;
-        this.messageStoragePort = messageStoragePort;
-        this.agentMemoryStoragePort = agentMemoryStoragePort;
-        this.policy = policy;
-        this.labelProvider = labelProvider;
+        this.agentProperties = agentProperties;
+        this.llmProviderRegistry = llmProviderRegistry;
+        this.messageStorage = messageStorage;
+        this.agentMemoryStorage = agentMemoryStorage;
+        this.runHistoryPort = runHistoryPort;
+        this.notificationChannels = notificationChannels;
+        this.guardrailChecker = guardrailChecker;
+        this.labelProvider = new DefaultStageLabelProvider();
+        this.responseValidator = new ResponseValidator(jsonMapper);
+        this.stagePropertiesMap = stagesProperties.stages().stream()
+                .collect(Collectors.toConcurrentMap(StageProperties::stageId, Function.identity()));
         this.jsonMapper = jsonMapper;
-        this.graph = buildGraph();
-        log.info("WorkflowPipeline initialised for agent [{}]", agentConfig.id());
+        log.debug("WorkflowPipeline initialised for agent [{}]", agentProperties.id());
     }
 
-    public void execute(AgentRequest request, Consumer<PipelineEvent> eventConsumer) {
+    public void setGraph(CompiledGraph<WorkflowContext> graph) {
+        this.graph = graph;
+    }
+
+    public void execute(UUID runId, AgentRequest request, Consumer<PipelineEvent> eventConsumer) {
         UUID conversationId = request.conversationId();
-        UUID runId = UUID.randomUUID();
-        log.info("Starting workflow execution for agent [{}], conversation [{}], run [{}]", agentConfig.id(), conversationId, runId);
-        activeConsumers.put(runId, eventConsumer);
+        AtomicBoolean runFinished = new AtomicBoolean(false);
+
+        log.debug("Starting workflow execution for agent [{}], conversation [{}], run [{}], llm: [{}]", agentProperties.id(), conversationId, runId, agentProperties.model());
+
+        Consumer<PipelineEvent> recordingConsumer = recordingConsumer(runId, runFinished, eventConsumer);
+        activeConsumers.put(runId, recordingConsumer);
+
         Map<String, Object> initialState = Map.of(
                 WorkflowContext.KEY_RUN_ID, runId,
                 WorkflowContext.KEY_CONVERSATION_ID, conversationId,
                 WorkflowContext.KEY_USER_MESSAGE, request.message(),
-                WorkflowContext.KEY_SYSTEM_PROMPT, agentConfig.systemPrompt(),
-                WorkflowContext.KEY_RETRIED, false,
-                WorkflowContext.KEY_VALIDATION_PASSED, false
+                WorkflowContext.KEY_TRIGGER_SOURCE, request.triggerSource(),
+                WorkflowContext.KEY_SYSTEM_PROMPT, agentProperties.systemPrompt()
         );
-        // TODO: no timeout/cancellation on graph.invoke() — a hung llmProvider call currently
-        // blocks this thread indefinitely with no way to recover the run. Wrap with a bounded
-        // executor + timeout (and ensure activeConsumers.remove(runId) still fires on timeout).
+        CompletableFuture<Void> future = null;
         try {
-            graph.invoke(initialState);
-            log.info("Workflow completed for agent [{}], conversation [{}], run [{}]", agentConfig.id(), conversationId, runId);
-        } catch (WorkflowExecutionException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new WorkflowExecutionException(agentConfig.id(),
-                    "Unexpected pipeline failure: " + e.getMessage(), e);
+            // Wrap graph invocation with timeout to prevent indefinite blocking
+            future = CompletableFuture.runAsync(() -> graph.invoke(initialState));
+            future.get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            log.debug("Workflow completed for agent [{}], conversation [{}], run [{}]", agentProperties.id(), conversationId, runId);
+        } catch (TimeoutException ex) {
+            WorkflowExecutionException failure = new WorkflowExecutionException(agentProperties.id(),
+                    "Workflow execution timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds", ex);
+            recordFailure(runId, runFinished, failure);
+            throw failure;
+        } catch (WorkflowExecutionException ex) {
+            if (future != null) future.cancel(true);
+            recordFailure(runId, runFinished, ex);
+            throw ex;
+        } catch (Exception ex) {
+            WorkflowExecutionException failure = new WorkflowExecutionException(agentProperties.id(),
+                    "Unexpected pipeline failure: " + ex.getMessage(), ex);
+            recordFailure(runId, runFinished, failure);
+            throw failure;
         } finally {
             activeConsumers.remove(runId);
         }
     }
 
+    public String workflowDiagram(String title) {
+        if (graph == null) {
+            throw new IllegalStateException("Pipeline not fully initialised — compiled graph is missing");
+        }
+        return graph.getGraph(GraphRepresentation.Type.MERMAID, title).content();
+    }
+
+    // ── Event Consumer Management ───────────────────────────────────────────
+
+    private Consumer<PipelineEvent> recordingConsumer(UUID historyRunId, AtomicBoolean runFinished, Consumer<PipelineEvent> delegate) {
+        return event -> {
+            if (event instanceof PipelineEvent.ConversationCompleted && runFinished.compareAndSet(false, true)) {
+                runHistoryPort.complete(historyRunId);
+            } else if (event instanceof PipelineEvent.Error(String message) && runFinished.compareAndSet(false, true)) {
+                runHistoryPort.fail(historyRunId, message);
+            }
+
+            try {
+                delegate.accept(event);
+            } catch (RuntimeException ex) {
+                log.warn("Pipeline event consumer failed for run [{}]: {}", historyRunId, ex.getMessage());
+            }
+        };
+    }
+
+    private void recordFailure(UUID historyRunId, AtomicBoolean runFinished, Exception failure) {
+        if (runFinished.compareAndSet(false, true)) {
+            runHistoryPort.fail(historyRunId, failure.getMessage());
+        }
+    }
+
+    /**
+     * Retrieves the event consumer registered for the given workflow state.
+     * Called by node implementations to emit events during graph execution.
+     */
     private Consumer<PipelineEvent> consumer(WorkflowContext state) {
         return state.runId()
                 .map(activeConsumers::get)
-                .orElseThrow(() -> new IllegalStateException("No event consumer registered for this pipeline execution"));
+                .orElseThrow(() -> new IllegalStateException(
+                        "No event consumer registered for runId in state. " +
+                                "This usually means the state was not initialised with a runId or the consumer was already removed."));
     }
 
-    // ── Graph construction ───────────────────────────────────────────────────
+    // ── Node Action Factory ─────────────────────────────────────────────────
 
-    private CompiledGraph<WorkflowContext> buildGraph() {
-        try {
-            return new StateGraph<>(WorkflowContext.SCHEMA)
-                    .addNode(StageId.PERSIST_USER_MESSAGE.name(), AsyncNodeAction.node_async(this::persistUserMessage))
-                    .addNode(StageId.LOAD_MEMORY.name(), AsyncNodeAction.node_async(this::loadMemory))
-                    .addNode(StageId.CLASSIFICATION.name(), AsyncNodeAction.node_async(this::classify))
-                    .addNode(StageId.EXECUTE_WORKFLOW.name(), AsyncNodeAction.node_async(this::executeWorkflow))
-                    .addNode(StageId.GENERATE_CLARIFICATION.name(), AsyncNodeAction.node_async(this::generateClarification))
-                    // (CLASSIFICATION_SYSTEM_PROMPT's schema never instructs the classifier to return it)
-                    // and had a copy-paste bug emitting StageId.GENERATE_REDIRECT's completion event
-                    // instead of its own.
-                    .addNode(StageId.GENERATE_REDIRECT.name(), AsyncNodeAction.node_async(this::generateRedirect))
-                    .addNode(StageId.APPLY_REFUSE.name(), AsyncNodeAction.node_async(this::applyRefuse))
-                    .addNode(StageId.SELF_VERIFICATION.name(), AsyncNodeAction.node_async(this::selfVerify))
-                    .addNode(StageId.PERSIST_RESPONSE.name(), AsyncNodeAction.node_async(this::persistResponse))
-                    .addNode(StageId.PERSIST_MEMORY.name(), AsyncNodeAction.node_async(this::persistMemory))
-                    .addNode(StageId.COMPLETE.name(), AsyncNodeAction.node_async(this::complete))
-                    .addEdge(StateGraph.START, StageId.PERSIST_USER_MESSAGE.name())
-                    .addEdge(StageId.PERSIST_USER_MESSAGE.name(), StageId.LOAD_MEMORY.name())
-                    .addEdge(StageId.LOAD_MEMORY.name(), StageId.CLASSIFICATION.name())
-                    .addConditionalEdges(StageId.CLASSIFICATION.name(),
-                            AsyncEdgeAction.edge_async(this::routeDecision),
-                            Map.of(
-                                    DecisionMode.EXECUTE.name(), StageId.EXECUTE_WORKFLOW.name(),
-                                    DecisionMode.CLARIFY.name(), StageId.GENERATE_CLARIFICATION.name(),
-                                    DecisionMode.REDIRECT.name(), StageId.GENERATE_REDIRECT.name(),
-                                    DecisionMode.REFUSE.name(), StageId.APPLY_REFUSE.name()))
-                    .addEdge(StageId.EXECUTE_WORKFLOW.name(), StageId.SELF_VERIFICATION.name())
-                    .addEdge(StageId.SELF_VERIFICATION.name(), StageId.PERSIST_RESPONSE.name())
-                    .addEdge(StageId.GENERATE_CLARIFICATION.name(), StageId.PERSIST_RESPONSE.name())
-                    .addEdge(StageId.GENERATE_REDIRECT.name(), StageId.PERSIST_RESPONSE.name())
-                    .addEdge(StageId.APPLY_REFUSE.name(), StageId.PERSIST_RESPONSE.name())
-                    .addEdge(StageId.PERSIST_RESPONSE.name(), StageId.PERSIST_MEMORY.name())
-                    .addEdge(StageId.PERSIST_MEMORY.name(), StageId.COMPLETE.name())
-                    .addEdge(StageId.COMPLETE.name(), StateGraph.END)
-                    .compile();
-        } catch (Exception e) {
-            throw new WorkflowExecutionException(agentConfig.id(), "Failed to build workflow graph", e);
+    protected NodeAction<WorkflowContext> stageAction(StageId stageId, NodeAction<WorkflowContext> action) {
+        return state -> {
+            try {
+                return action.apply(state);
+            } catch (PipelineStageException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                throw new PipelineStageException(agentProperties.id(), stageId, ex.getMessage(), ex);
+            }
+        };
+    }
+
+    // ── Stage Implementations ──────────────────────────────────────────────
+
+    protected Map<String, Object> guardrailInput(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
+        emit(events, StageId.GUARDRAIL_INPUT, true);
+
+        boolean blocked = guardrailChecker.checkInput(state.userMessage()).isPresent();
+        if (blocked) {
+            log.warn("[{}] Input guardrail blocked user message — matched blocklist term", agentProperties.id());
         }
+
+        emit(events, StageId.GUARDRAIL_INPUT, false);
+        return Map.of(WorkflowContext.KEY_GUARDRAIL_BLOCKED, blocked);
     }
 
-    // ── Nodes ────────────────────────────────────────────────────────────────
-
-    private Map<String, Object> persistUserMessage(WorkflowContext state) {
-        var events = consumer(state);
+    protected Map<String, Object> persistUserMessage(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
         emit(events, StageId.PERSIST_USER_MESSAGE, true);
         state.conversationId().ifPresent(id ->
-                messageStoragePort.save(id, agentConfig.id(), new ConversationMessage(ConversationMessageRole.USER, state.userMessage())));
+                messageStorage.save(id, agentProperties.id(), new ConversationMessage(ConversationMessageRole.USER, state.userMessage(), state.guardrailPassed())));
         emit(events, StageId.PERSIST_USER_MESSAGE, false);
-        log.debug("[{}] User message persisted for conversation [{}]", agentConfig.id(), state.conversationId().orElse(null));
+        log.debug("[{}] User message persisted for conversation [{}]", agentProperties.id(), state.conversationId().orElse(null));
         return Map.of();
     }
 
-    private Map<String, Object> loadMemory(WorkflowContext state) {
-        var events = consumer(state);
+    protected Map<String, Object> loadMemory(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
         emit(events, StageId.LOAD_MEMORY, true);
 
-        List<ConversationMessage> history = List.of();
-        if (agentConfig.memoryEnabled() && state.conversationId().isPresent()) {
-            var all = messageStoragePort.findByAgentIdAndConversationId(agentConfig.id(), state.conversationId().get());
-            int window = agentConfig.memoryLimit() * 2;
-            history = all.size() > window ? all.subList(all.size() - window, all.size()) : all;
-            log.debug("[{}] Loaded {} history messages (window: {})", agentConfig.id(), history.size(), window);
+        String memoryContext = "";
+        if (agentProperties.memoryEnabled() && state.conversationId().isPresent()) {
+            memoryContext = agentMemoryStorage
+                    .getMemory(state.conversationId().get(), agentProperties.id())
+                    .orElse("");
+            log.debug("[{}] Loaded compact memory ({} chars)", agentProperties.id(), memoryContext.length());
         }
 
         emit(events, StageId.LOAD_MEMORY, false);
-        return Map.of(WorkflowContext.KEY_HISTORY, history);
+        return Map.of(WorkflowContext.KEY_MEMORY_CONTEXT, memoryContext);
     }
 
-    private Map<String, Object> classify(WorkflowContext state) {
-        var events = consumer(state);
+    protected Map<String, Object> classify(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
         emit(events, StageId.CLASSIFICATION, true);
 
         RoutingDecision decision = performClassification(state);
 
         emit(events, StageId.CLASSIFICATION, false);
         events.accept(new PipelineEvent.DecisionMade(decision.decisionMode(), decision.reason()));
-        log.info("[{}] Classification result: {} — {}", agentConfig.id(), decision.decisionMode(), decision.reason());
+        log.debug("[{}] Classification result: {} — {}", agentProperties.id(), decision.decisionMode(), decision.reason());
 
         return Map.of(WorkflowContext.KEY_ROUTING_DECISION, decision);
     }
 
-    private Map<String, Object> executeWorkflow(WorkflowContext state) {
-        var events = consumer(state);
+    protected Map<String, Object> executeWorkflow(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
         emit(events, StageId.EXECUTE_WORKFLOW, true);
 
-        var request = new LlmRequest(
-                agentConfig.model(),
-                agentConfig.temperature(),
-                state.systemPrompt(),
+        LLMRequest request = new LLMRequest(
+                agentProperties.model(),
+                agentProperties.temperature(),
+                withResponseContractInstructions(state.systemPrompt(), agentProperties.workflowPolicyProperties().responseContract()),
                 state.userMessage(),
-                state.history());
+                state.memoryContext());
 
-        log.debug("[{}] Starting LLM stream with model [{}]", agentConfig.id(), agentConfig.model());
-        String response = llmProvider.stream(request, token -> events.accept(new PipelineEvent.Token(token)));
+        log.debug("[{}] Starting LLM call with model [{}]", agentProperties.id(), agentProperties.model());
+        // Buffered, not streamed live. Note this is only a *draft* — SELF_VERIFICATION decides
+        // whether it's final or needs a retry, so guardrail-check/persist/stream must not happen
+        // here. That single, exactly-once step lives in self-Verify (see applyOutputGuardrail).
+        String response = llmProviderRegistry.get(agentProperties.llmProviderId()).stream(request, _ -> { });
+
+        ValidationResult validation = responseValidator
+                .validate(agentProperties.workflowPolicyProperties().responseContract(), response);
+        if (!validation.valid()) {
+            log.warn("[{}] Generated response failed validation: {}", agentProperties.id(), validation.reason());
+        }
 
         emit(events, StageId.EXECUTE_WORKFLOW, false);
-        events.accept(new PipelineEvent.ResponseCompleted(response));
-        log.debug("[{}] LLM streaming complete, response length: {}", agentConfig.id(), response.length());
+        log.debug("[{}] LLM streaming complete, length: {}", agentProperties.id(), response.length());
 
-        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, response);
+        return Map.of(
+                WorkflowContext.KEY_GENERATED_RESPONSE, response,
+                WorkflowContext.KEY_VALIDATION_PASSED, validation.valid(),
+                WorkflowContext.KEY_VALIDATION_FAILURE_REASON, validation.reason() == null ? "" : validation.reason()
+        );
     }
 
-    private Map<String, Object> generateClarification(WorkflowContext state) {
-        var events = consumer(state);
+    protected Map<String, Object> generateClarification(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
         emit(events, StageId.GENERATE_CLARIFICATION, true);
 
         String clarification = state.routingDecision()
                 .map(RoutingDecision::clarificationQuestion)
-                .filter(q -> q != null && !q.isBlank())
+                .filter(q -> !q.isBlank())
                 .orElseGet(() -> {
-                    log.debug("[{}] No clarification question from classifier, generating via LLM", agentConfig.id());
+                    log.debug("[{}] No clarification question from classifier, generating via LLM", agentProperties.id());
                     return generateClarificationViaLlm(state);
                 });
 
-        for (String token : clarification.split("(?<=\\s)")) {
-            events.accept(new PipelineEvent.Token(token));
-        }
         emit(events, StageId.GENERATE_CLARIFICATION, false);
-        events.accept(new PipelineEvent.ResponseCompleted(clarification));
-        log.info("[{}] Clarification question generated", agentConfig.id());
+        String safeClarification = applyOutputGuardrail(state, clarification);
+        log.debug("[{}] Clarification question generated", agentProperties.id());
 
-        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, clarification, WorkflowContext.KEY_VALIDATION_PASSED, true);
+        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, safeClarification);
     }
 
-    private Map<String, Object> generateRedirect(WorkflowContext state) {
-        var events = consumer(state);
+    protected Map<String, Object> generateRedirect(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
         emit(events, StageId.GENERATE_REDIRECT, true);
 
-        String redirect = policy.redirectMessage();
-        for (String token : redirect.split("(?<=\\s)")) {
-            events.accept(new PipelineEvent.Token(token));
-        }
+        String redirect = streamDecisionResponse(state, redirectPrompt(
+                state.systemPrompt(), agentProperties.workflowPolicyProperties(),
+                state.routingDecision().orElse(RoutingDecision.redirect("Redirecting mixed-scope request", state.userMessage()))));
+
         emit(events, StageId.GENERATE_REDIRECT, false);
-        events.accept(new PipelineEvent.ResponseCompleted(redirect));
-        log.info("[{}] Redirect response sent", agentConfig.id());
+        String safeRedirect = applyOutputGuardrail(state, redirect);
+        log.debug("[{}] Redirect response sent", agentProperties.id());
 
-        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, redirect, WorkflowContext.KEY_VALIDATION_PASSED, true);
+        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, safeRedirect);
     }
 
-    private Map<String, Object> applyRefuse(WorkflowContext state) {
-        var events = consumer(state);
-        emit(events, StageId.APPLY_REFUSE, true);
+    protected Map<String, Object> generateGreeting(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
+        emit(events, StageId.GENERATE_GREETING, true);
 
-        String refusal = policy.refuseMessage();
-        for (String token : refusal.split("(?<=\\s)")) {
-            events.accept(new PipelineEvent.Token(token));
-        }
-        emit(events, StageId.APPLY_REFUSE, false);
-        events.accept(new PipelineEvent.ResponseCompleted(refusal));
-        log.info("[{}] Refusal response sent — no LLM tokens consumed", agentConfig.id());
+        RoutingDecision decision = state.routingDecision()
+                .orElse(RoutingDecision.greet("Greeting", state.userMessage()));
+        String greeting = streamDecisionResponse(state, greetingPrompt(
+                state.systemPrompt(), agentProperties.workflowPolicyProperties(), decision));
 
-        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, refusal, WorkflowContext.KEY_VALIDATION_PASSED, true);
+        emit(events, StageId.GENERATE_GREETING, false);
+        String safeGreeting = applyOutputGuardrail(state, greeting);
+        events.accept(new PipelineEvent.ResponseCompleted(greeting));
+        log.debug("[{}] Greeting response sent", agentProperties.id());
+
+        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, safeGreeting);
+
     }
 
-    // TODO(self-verification): this stage does not itself judge response quality — it only
-    // reacts to WorkflowContext.KEY_VALIDATION_PASSED. Today nothing on the EXECUTE path ever
-    // sets that flag true, so every successful EXECUTE turn falls through to the "not passed,
-    // not retried yet" branch below and unconditionally spends a second LLM call redoing the
-    // response — regardless of whether the first one was fine. This is a placeholder, not a
-    // real verification step.
-    //
-    // Intended contract going forward: the agent-specific EXECUTE_WORKFLOW subgraph is
-    // responsible for setting KEY_VALIDATION_PASSED based on its own internal check (a
-    // critic call, a schema/format validator, whatever fits that agent). This generic node
-    // should remain a safety-net retry-once, not the validator itself. Document this contract
-    // wherever agent implementations are plugged in — an agent author who forgets to set the
-    // flag will silently double their per-turn LLM cost.
-    private Map<String, Object> selfVerify(WorkflowContext state) {
-        if (ResponseValidationPolicy.acceptsCurrentResponse(state.validationPassed(), agentConfig.validationEnabled())) {
-            emit(consumer(state), StageId.SELF_VERIFICATION, false);
-            return Map.of(WorkflowContext.KEY_VALIDATION_PASSED, true);
-        }
-        if (state.retried()) {
-            log.warn("[{}] Self-verification skipped — already retried once, returning best effort", agentConfig.id());
-            String bestEffort = ResponseValidationPolicy.bestEffort(state.generatedResponse().orElse(""));
-            return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, bestEffort, WorkflowContext.KEY_VALIDATION_PASSED, true);
-        }
+    protected Map<String, Object> generateRefusal(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
+        emit(events, StageId.GENERATE_REFUSAL, true);
 
-        var events = consumer(state);
+        String refusal = streamDecisionResponse(state, refusalPrompt(
+                state.systemPrompt(), agentProperties.workflowPolicyProperties(),
+                state.routingDecision().orElse(RoutingDecision.refuse("Refusing request", state.userMessage()))));
+
+        emit(events, StageId.GENERATE_REFUSAL, false);
+        String safeRefusal = applyOutputGuardrail(state, refusal);
+        log.debug("[{}] Refusal response sent", agentProperties.id());
+
+        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, safeRefusal);
+
+    }
+
+    protected Map<String, Object> selfVerify(WorkflowContext state) {
+        Consumer<PipelineEvent> events = consumer(state);
         emit(events, StageId.SELF_VERIFICATION, true);
-        log.info("[{}] Attempting self-verification retry", agentConfig.id());
 
-        String retryPrompt = WorkflowPrompts.retryPrompt(state.userMessage(), state.generatedResponse().orElse(""));
-        var retryRequest = new LlmRequest(
-                agentConfig.model(), agentConfig.temperature(), state.systemPrompt(),
-                retryPrompt, state.history());
+        if (state.validationPassed()) {
+            emit(events, StageId.SELF_VERIFICATION, false);
+            String safeResponse = applyOutputGuardrail(state, state.generatedResponse().orElse(""));
+            return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, safeResponse, WorkflowContext.KEY_VALIDATION_PASSED, true);
+        }
 
-        String retryResponse = llmProvider.stream(retryRequest,
-                token -> events.accept(new PipelineEvent.Token(token)));
+        if (state.retried()) {
+            log.warn("[{}] Self-verification failed twice ({}) — returning best effort",
+                    agentProperties.id(), state.validationFailureReason());
+            events.accept(new PipelineEvent.StageFailed(StageId.SELF_VERIFICATION,
+                    labelProvider.failed(StageId.SELF_VERIFICATION),
+                    "Response still invalid after retry (%s) — returning best effort".formatted(state.validationFailureReason())));
+            String safeRetried = applyOutputGuardrail(state, state.generatedResponse().orElse(""));
+            return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, safeRetried, WorkflowContext.KEY_VALIDATION_PASSED, true);
+        }
 
-        log.warn("[{}] Self-verification retry still invalid — returning best effort", agentConfig.id());
+        log.debug("[{}] Self-verification failed ({}) — attempting one retry",
+                agentProperties.id(), state.validationFailureReason());
+
+        String retryPrompt = retryPrompt(state.userMessage(), state.generatedResponse().orElse(""), state.validationFailureReason());
+        var retryRequest = new LLMRequest(
+                agentProperties.model(), agentProperties.temperature(),
+                withResponseContractInstructions(state.systemPrompt(), agentProperties.workflowPolicyProperties().responseContract()),
+                retryPrompt, state.memoryContext());
+
+        // Buffered for the same reason as executeWorkflow: this must be the complete retry text
+        // before it can be re-validated below.
+        String retryResponse = llmProviderRegistry.get(agentProperties.llmProviderId()).stream(retryRequest, _ -> { });
+
+        ValidationResult retryValidation = responseValidator
+                .validate(agentProperties.workflowPolicyProperties().responseContract(), retryResponse);
+
+        if (retryValidation.valid()) {
+            log.debug("[{}] Retry passed validation", agentProperties.id());
+            emit(events, StageId.SELF_VERIFICATION, false);
+            String safeRetry = applyOutputGuardrail(state, retryResponse);
+            return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, safeRetry,
+                    WorkflowContext.KEY_VALIDATION_PASSED, true,
+                    WorkflowContext.KEY_RETRIED, true);
+        }
+
+        log.warn("[{}] Retry still invalid ({}) — returning latest retry result", agentProperties.id(), retryValidation.reason());
         events.accept(new PipelineEvent.StageFailed(
                 StageId.SELF_VERIFICATION,
                 labelProvider.failed(StageId.SELF_VERIFICATION),
-                "Retry still has issues — returning best effort"));
-        String bestEffort = ResponseValidationPolicy.bestEffort(retryResponse);
-        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, bestEffort,
+                "Retry still invalid (%s) — returning latest retry result".formatted(retryValidation.reason())));
+
+        String safeRetried = applyOutputGuardrail(state, retryResponse);
+        return Map.of(WorkflowContext.KEY_GENERATED_RESPONSE, safeRetried,
                 WorkflowContext.KEY_VALIDATION_PASSED, true,
                 WorkflowContext.KEY_RETRIED, true);
     }
 
-    private Map<String, Object> persistResponse(WorkflowContext state) {
-        var events = consumer(state);
-        emit(events, StageId.PERSIST_RESPONSE, true);
-
-        String response = state.generatedResponse().orElse("");
-        state.conversationId().ifPresent(id ->
-                messageStoragePort.save(id, agentConfig.id(), new ConversationMessage(ConversationMessageRole.AGENT, response)));
-
-        emit(events, StageId.PERSIST_RESPONSE, false);
-        log.debug("[{}] Response persisted, length: {}", agentConfig.id(), response.length());
-        return Map.of();
-    }
-
-    private Map<String, Object> persistMemory(WorkflowContext state) {
-        var events = consumer(state);
-
-        if (!agentConfig.memoryEnabled() || state.conversationId().isEmpty()) {
+    protected Map<String, Object> compactMemory(WorkflowContext state) {
+        if (!agentProperties.memoryEnabled() || state.conversationId().isEmpty()) {
             return Map.of();
         }
 
-        emit(events, StageId.PERSIST_MEMORY, true);
+        UUID conversationId = state.conversationId().get();
+        String previousMemory = state.memoryContext();
+        String userMessage = state.userMessage();
         String response = state.generatedResponse().orElse("");
-        if (!response.isBlank()) {
-            agentMemoryStoragePort.add(state.conversationId().get(), agentConfig.id(), response);
-            events.accept(new PipelineEvent.MemoryUpdated());
-            log.debug("[{}] Memory updated for conversation [{}]", agentConfig.id(), state.conversationId().get());
-        }
-        emit(events, StageId.PERSIST_MEMORY, false);
+
+        Thread.startVirtualThread(() -> compactMemoryAsync(conversationId, previousMemory, userMessage, response));
         return Map.of();
     }
 
-    private Map<String, Object> complete(WorkflowContext state) {
+    protected Map<String, Object> complete(WorkflowContext state) {
         consumer(state).accept(new PipelineEvent.ConversationCompleted());
-        log.info("[{}] Pipeline complete for conversation [{}]",
-                agentConfig.id(), state.conversationId().orElse(null));
+        ConversationMessage message = new ConversationMessage(ConversationMessageRole.AGENT,
+                state.generatedResponse().orElse(""), state.guardrailPassed());
+        state.conversationId().ifPresent(id -> notificationChannels.forEach(
+                channel -> channel.notify(agentProperties.id(), id, message)));
+        log.debug("[{}] Pipeline complete for conversation [{}]", agentProperties.id(), state.conversationId().orElse(null));
         return Map.of();
     }
 
-    // ── Routing ──────────────────────────────────────────────────────────────
-
-    private String routeDecision(WorkflowContext state) {
-        return state.routingDecision()
-                .map(d -> d.decisionMode().name())
-                .orElse("REFUSE");
-    }
-
-    // ── Classification ───────────────────────────────────────────────────────
+    // ── Classification ─────────────────────────────────────────────────────
 
     private RoutingDecision performClassification(WorkflowContext state) {
-        String classificationPrompt = WorkflowPrompts.classificationPrompt(agentConfig.id(), policy, state.userMessage());
+        String classificationPrompt = classificationPrompt(agentProperties.id(), agentProperties.workflowPolicyProperties(), state.userMessage());
 
-        var classifyRequest = new LlmRequest(
-                agentConfig.model(), 0.1,
-                WorkflowPrompts.CLASSIFICATION_SYSTEM_PROMPT,
+        StageProperties stageProperties = stagePropertiesMap.get(StageId.CLASSIFICATION);
+        LLLMProvider stageLLMProvider = llmProviderRegistry.get(stageProperties.llmProviderId());
+
+        LLMRequest classifyRequest = new LLMRequest(
+                stageProperties.model(), 0.1,
+                CLASSIFICATION_SYSTEM_PROMPT,
                 classificationPrompt,
-                List.of());
+                "");
         try {
-            String jsonResponse = llmProvider.call(classifyRequest);
+            String jsonResponse = stageLLMProvider.call(classifyRequest);
             return parseRoutingDecision(jsonResponse);
-        } catch (ClassificationException e) {
-            throw e;
-        } catch (Exception e) {
-            // Fail-closed: an unclassified request must not silently fall through to full
-            // agent execution. This mirrors routeDecision()'s own REFUSE default when no
-            // routing decision is present in the state — the two must-stay consistent.
-            log.warn("[{}] Classification LLM call failed, defaulting to REFUSE: {}", agentConfig.id(), e.getMessage());
-            return RoutingDecision.refuse(state.userMessage(), "Classification unavailable — failing closed: " + e.getMessage());
+        } catch (ClassificationException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("[{}] Classification LLM call failed, defaulting to REFUSE: {}", agentProperties.id(), ex.getMessage());
+            return RoutingDecision.refuse("Classification unavailable: " + ex.getMessage(), state.userMessage());
         }
+    }
+
+    // Shared by every node that produces a final response (EXECUTE_WORKFLOW, GENERATE_CLARIFICATION,
+    // GENERATE_REDIRECT, APPLY_REFUSE, and the self-verification retry). The candidate text must
+    // already be fully generated/known — never partially streamed — so it can be checked before
+    // anything reaches the client. Emits the (possibly replaced) text as simulated token chunks over
+    // the existing PipelineEvent.Token schema, so chat.js needs no changes: it just receives a burst
+    // of tokens close together instead of generation-paced ones.
+    private String applyOutputGuardrail(WorkflowContext state, String candidateResponse) {
+        Consumer<PipelineEvent> events = consumer(state);
+        emit(events, StageId.GUARDRAIL_OUTPUT, true);
+
+        String finalResponse = guardrailChecker.checkOutput(candidateResponse)
+                .map(_ -> {
+                    log.warn("[{}] Output guardrail blocked generated response — matched blocklist term",
+                            agentProperties.id());
+                    return GUARDRAIL_FALLBACK_MESSAGE;
+                })
+                .orElse(candidateResponse);
+
+        emit(events, StageId.GUARDRAIL_OUTPUT, false);
+
+        // Persisted before a single token reaches the client. If the SSE connection drops for any
+        // reason during the loop below, the response is already durably saved — reopening the
+        // conversation shows it regardless of whether the client received any of the stream.
+        emit(events, StageId.PERSIST_RESPONSE, true);
+        state.conversationId().ifPresent(id -> messageStorage.save(
+                id, agentProperties.id(), new ConversationMessage(ConversationMessageRole.AGENT, finalResponse, false)));
+        emit(events, StageId.PERSIST_RESPONSE, false);
+
+        for (String chunk : finalResponse.split("(?<=\\s)")) {
+            events.accept(new PipelineEvent.Token(chunk));
+        }
+        events.accept(new PipelineEvent.ResponseCompleted(finalResponse));
+        return finalResponse;
     }
 
     private RoutingDecision parseRoutingDecision(String jsonResponse) {
-        String json = extractJson(jsonResponse);
         try {
-            return jsonMapper.readValue(json, RoutingDecision.class);
-        } catch (Exception e) {
-            throw new ClassificationException(agentConfig.id(), "Failed to parse routing decision from LLM response: " + jsonResponse, e);
+            return jsonMapper.readValue(jsonResponse, RoutingDecision.class);
+        } catch (Exception ex) {
+            throw new ClassificationException(agentProperties.id(), "Failed to parse routing decision from LLM response: %s".formatted(jsonResponse), ex);
         }
     }
 
-    private String extractJson(String text) {
-        int start = text.indexOf('{');
-        int end = text.lastIndexOf('}');
-        if (start == -1 || end == -1 || end <= start) {
-            throw new ClassificationException(agentConfig.id(),
-                    "No JSON object found in classification response: " + text);
-        }
-        return text.substring(start, end + 1);
-    }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────────────────────────
 
     private void emit(Consumer<PipelineEvent> events, StageId stageId, boolean started) {
         if (started) {
@@ -412,8 +521,49 @@ public class WorkflowPipeline {
     }
 
     private String generateClarificationViaLlm(WorkflowContext state) {
-        String prompt = WorkflowPrompts.clarificationPrompt(state.userMessage());
-        var request = new LlmRequest(agentConfig.model(), 0.7, state.systemPrompt(), prompt, state.history());
-        return llmProvider.call(request);
+        StageProperties stageProperties = stagePropertiesMap.get(StageId.CLASSIFICATION);
+        LLLMProvider stageLLMProvider = llmProviderRegistry.get(stageProperties.llmProviderId());
+
+        String prompt = clarificationPrompt(state.userMessage());
+        LLMRequest request = new LLMRequest(stageProperties.model(), stageProperties.temperature(), state.systemPrompt(), prompt, state.memoryContext());
+        return stageLLMProvider.call(request);
+    }
+
+    private String streamDecisionResponse(WorkflowContext state, String prompt) {
+        StageProperties stageProperties = stagePropertiesMap.get(StageId.CLASSIFICATION);
+        LLLMProvider stageLLMProvider = llmProviderRegistry.get(stageProperties.llmProviderId());
+
+        try {
+            LLMRequest request = new LLMRequest(stageProperties.model(), agentProperties.temperature(), state.systemPrompt(), prompt, state.memoryContext());
+            return stageLLMProvider.stream(request, token -> consumer(state).accept(new PipelineEvent.Token(token)));
+        } catch (Exception ex) {
+            log.warn("[{}] Decision response generation failed, using fallback: {}", agentProperties.id(), ex.getMessage());
+            String fallback = agentProperties.workflowPolicyProperties().failedToProcessMessage();
+            for (String token : fallback.split("(?<=\\s)")) {
+                consumer(state).accept(new PipelineEvent.Token(token));
+            }
+            return fallback;
+        }
+    }
+
+    private void compactMemoryAsync(UUID conversationId, String previousMemory, String userMessage, String response) {
+        if (response.isBlank()) {
+            return;
+        }
+
+        StageProperties stageProperties = stagePropertiesMap.get(StageId.CLASSIFICATION);
+        LLLMProvider stageLLMProvider = llmProviderRegistry.get(stageProperties.llmProviderId());
+
+        try {
+            String prompt = memoryCompactionPrompt(previousMemory, userMessage, response);
+            LLMRequest request = new LLMRequest(stageProperties.model(), 0.2, agentProperties.systemPrompt(), prompt, previousMemory);
+            String compacted = stageLLMProvider.call(request);
+            if (!compacted.isBlank()) {
+                agentMemoryStorage.replace(conversationId, agentProperties.id(), compacted);
+                log.debug("[{}] Memory compacted for conversation [{}]", agentProperties.id(), conversationId);
+            }
+        } catch (Exception ex) {
+            log.warn("[{}] Memory compaction failed for conversation [{}]: {}", agentProperties.id(), conversationId, ex.getMessage());
+        }
     }
 }

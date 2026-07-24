@@ -7,8 +7,7 @@ public class ClassificationException extends DomainException {
     private final UUID agentId;
 
     public ClassificationException(UUID agentId, String message) {
-        super("Classification failed for agent [%s]: %s".formatted(agentId, message));
-        this.agentId = agentId;
+        this(agentId, message, null);
     }
 
     public ClassificationException(UUID agentId, String message, Throwable cause) {

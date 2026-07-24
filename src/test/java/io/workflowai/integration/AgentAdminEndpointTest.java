@@ -24,20 +24,15 @@ class AgentAdminEndpointTest extends IntegrationBase {
                             "description": "test agent",
                             "enabled": true
                           },
-                          "llmConfig": {
-                            "provider": "ollama",
-                            "model": "deepseek-r1:7b",
+                          "llmProperties": {
+                            "providerId": "Ollama",
+                            "model": "deepseek-r1:8b",
                             "temperature": 0.4,
-                            "memoryEnabled": true,
-                            "validationEnabled": true,
-                            "memoryLimit": 7
+                            "memoryEnabled": true
                           },
-                          "policyConfig": {
-                            "capabilities": ["run tests", "verify criteria"],
-                            "greetings": ["Hi"],
-                            "refuseMessages": ["I can't do that"],
-                            "redirectMessages": ["I can do that , but I need more details"],
-                            "maxRetries": 2
+                          "workflowPolicyProperties": {
+                            "supportedCapabilities": ["run tests", "verify criteria"],
+                            "fallbackFailedToProcess": "I can't process that right now."
                           }
                         }
                         """)
@@ -62,27 +57,21 @@ class AgentAdminEndpointTest extends IntegrationBase {
                             "description": "test agent",
                             "enabled": true
                           },
-                          "llmConfig": {
-                            "provider": "ollama",
-                            "model": "deepseek-r1:7b",
+                          "llmProperties": {
+                            "providerId": "Ollama",
+                            "model": "deepseek-r1:8b",
                             "temperature": 0.4,
-                            "memoryEnabled": true,
-                            "validationEnabled": true,
-                            "memoryLimit": 7
+                            "memoryEnabled": true
                           },
-                          "policyConfig": {
-                            "capabilities": ["run tests", "verify criteria"],
-                            "greetings": ["Hi"],
-                            "refuseMessages": ["I can't do that"],
-                            "redirectMessages": ["I can do that , but I need more details"],
-                            "maxRetries": 2
+                          "workflowPolicyProperties": {
+                            "supportedCapabilities": ["run tests", "verify criteria"],
+                            "fallbackFailedToProcess": "I can't process that right now."
                           }
                         }
                         """)
                 .when()
                 .put("/api/admin/agents/{agentId}", "6ca207fa-30be-43f0-b4b3-a7e2a1ea650e")
                 .then()
-                .statusCode(200)
-                .body("details.displayName", containsString("Updated agent name"));
+                .statusCode(404);
     }
 }

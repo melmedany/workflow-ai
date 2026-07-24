@@ -1,8 +1,10 @@
 package io.workflowai.adapters.inbound.rest;
 
-import io.workflowai.domain.model.AgentDefinition;
-import io.workflowai.domain.model.ProviderOption;
-import io.workflowai.ports.inbound.AgentAdminPort;
+import io.workflowai.application.AgentService;
+import io.workflowai.application.LLMProviderId;
+import io.workflowai.domain.agents.AgentDefinition;
+import io.workflowai.ports.inbound.AgentAdminManager;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,53 +17,62 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin/agents")
 public class AgentAdminController {
 
-    private final AgentAdminPort agentAdminPort;
+    private final AgentAdminManager agentAdminManager;
+    private final AgentService agentService;
 
-    public AgentAdminController(AgentAdminPort agentAdminPort) {
-        this.agentAdminPort = agentAdminPort;
+    public AgentAdminController(AgentAdminManager agentAdminManager, AgentService agentService) {
+        this.agentAdminManager = agentAdminManager;
+        this.agentService = agentService;
     }
 
-    @GetMapping("/providers")
-    public List<ProviderOption> supportedProviders() {
-        return agentAdminPort.supportedProviders();
+    @GetMapping("/supported-llm-providers")
+    public ResponseEntity<Map<LLMProviderId, Set<String>>> supportedLLmProviders() {
+        return ResponseEntity.ok(agentAdminManager.supportedLLMProviders());
     }
 
     @GetMapping({"", "/"})
     public ResponseEntity<List<AgentDefinition>> getAgents() {
-        return ResponseEntity.ok(agentAdminPort.getAllDefinitions());
+        return ResponseEntity.ok(agentAdminManager.getAllDefinitions());
     }
 
     @GetMapping("/{agentId}")
     public ResponseEntity<AgentDefinition> getAgent(@PathVariable UUID agentId) {
-        return ResponseEntity.ok(agentAdminPort.getDefinition(agentId));
+        return ResponseEntity.ok(agentAdminManager.getDefinition(agentId));
     }
 
-    @PostMapping
+    @GetMapping(path = "/{agentId}/workflowDiagram", produces = MediaType.TEXT_PLAIN_VALUE)
+    public ResponseEntity<String> getWorkflowDiagram(@PathVariable UUID agentId) {
+        return ResponseEntity.ok(agentService.get(agentId).workflowDiagram());
+    }
+
+    @PostMapping({"", "/"})
     public ResponseEntity<AgentDefinition> createAgent(@RequestBody AgentDefinition definition) {
-        AgentDefinition created = agentAdminPort.saveDefinition(definition);
+        AgentDefinition created = agentAdminManager.saveDefinition(definition);
         return ResponseEntity.created(URI.create("/api/admin/agents/%s".formatted(created.agentId()))).body(created);
     }
 
     @PutMapping("/{agentId}")
     public ResponseEntity<AgentDefinition> updateAgent(@PathVariable UUID agentId, @RequestBody AgentDefinition definition) {
-        AgentDefinition updated = agentAdminPort.updateDefinition(new AgentDefinition(
+        AgentDefinition updated = agentAdminManager.updateDefinition(new AgentDefinition(
                 agentId,
                 definition.details(),
-                definition.llmConfig(),
-                definition.policyConfig()));
+                definition.llmProperties(),
+                definition.workflowPolicyProperties()));
 
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{agentId}")
     public ResponseEntity<Void> deleteAgent(@PathVariable UUID agentId) {
-        agentAdminPort.deleteDefinition(agentId);
+        agentAdminManager.deleteDefinition(agentId);
         return ResponseEntity.noContent().build();
     }
 }

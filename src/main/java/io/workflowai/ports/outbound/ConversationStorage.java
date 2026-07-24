@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface ConversationStoragePort {
+public interface ConversationStorage {
 
     Conversation create(UUID agentId, String title);
 

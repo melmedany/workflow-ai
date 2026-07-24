@@ -1,18 +1,15 @@
 package io.workflowai.adapters.outbound.providers;
 
-import io.workflowai.domain.exceptions.LlmStreamingException;
-import io.workflowai.domain.exceptions.LlmProviderException;
-import io.workflowai.domain.model.ConversationMessage;
-import io.workflowai.domain.model.ConversationMessageRole;
-import io.workflowai.domain.model.LlmRequest;
-import io.workflowai.ports.outbound.LlmProviderPort;
-import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import io.workflowai.domain.exceptions.LlmStreamingException;
+import io.workflowai.domain.model.LLMRequest;
+import io.workflowai.ports.outbound.LLLMProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,44 +19,65 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-public abstract class AbstractLlmProvider implements LlmProviderPort {
+public abstract class AbstractLlmProvider implements LLLMProvider {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractLlmProvider.class);
+
+    protected ChatModel defaultChatModel;
+    protected StreamingChatModel defaultStreamingModel;
 
     protected String resolveModel(String requestedModel, String defaultModel) {
         if (!supportsModel(requestedModel)) {
             log.warn("Model [{}] not supported by provider [{}], falling back to default [{}]",
-                    requestedModel, getProviderName(), defaultModel);
+                    requestedModel, getId(), defaultModel);
             return defaultModel;
         }
-        log.debug("Resolved model [{}] for provider [{}]", requestedModel, getProviderName());
+        log.debug("Resolved model [{}] for provider [{}]", requestedModel, getId());
         return requestedModel;
     }
 
-    protected List<ChatMessage> buildMessages(LlmRequest request) {
+    protected List<ChatMessage> buildMessages(LLMRequest request) {
         List<ChatMessage> messages = new ArrayList<>();
-        messages.add(SystemMessage.from(request.systemPrompt()));
-        for (ConversationMessage msg : request.history()) {
-            if (ConversationMessageRole.USER.equals(msg.role())) {
-                messages.add(UserMessage.from(msg.content()));
-            } else {
-                messages.add(AiMessage.from(msg.content()));
-            }
-        }
-        messages.add(UserMessage.from(request.userMessage()));
-        log.debug("Built {} messages for provider [{}] (history size: {})",
-                messages.size(), getProviderName(), request.history().size());
+        messages.add(SystemMessage.from(systemPromptWithMemory(request)));
+        messages.add(UserMessage.from(request.message()));
+        log.debug("Built {} messages for provider [{}]", messages.size(), getId());
         return messages;
+    }
+
+    protected ChatModel getDefaultChatModel(String defaultModel, double defaultTemperature) {
+        if (defaultChatModel == null) {
+            defaultChatModel = buildChatModel(defaultModel, defaultTemperature);
+            log.debug("[{}] initialised: {}", getId(), defaultModel);
+        }
+        return defaultChatModel;
+    }
+
+    protected StreamingChatModel getDefaultStreamingModel(String defaultModel, double defaultTemperature) {
+        if (defaultStreamingModel == null) {
+            defaultStreamingModel = buildStreamingModel(defaultModel, defaultTemperature);
+        }
+        return defaultStreamingModel;
+    }
+
+    abstract protected ChatModel buildChatModel(String model, double temperature);
+
+    abstract protected StreamingChatModel buildStreamingModel(String model, double temperature);
+
+    private String systemPromptWithMemory(LLMRequest request) {
+        if (request.memoryContext() == null || request.memoryContext().isBlank()) {
+            return request.systemPrompt();
+        }
+        return request.systemPrompt() + "\n\nConversation memory:\n" + request.memoryContext();
     }
 
     protected String doStream(StreamingChatModel streamingModel,
                               List<ChatMessage> messages,
                               Consumer<String> tokenConsumer) {
-        var latch = new CountDownLatch(1);
-        var buffer = new StringBuilder();
-        var errorRef = new AtomicReference<Throwable>();
+        CountDownLatch latch = new CountDownLatch(1);
+        StringBuilder buffer = new StringBuilder();
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
 
-        log.debug("Starting streaming request on provider [{}]", getProviderName());
+        log.debug("Starting streaming request on provider [{}]", getId());
 
         streamingModel.chat(messages, new StreamingChatResponseHandler() {
             @Override
@@ -71,13 +89,13 @@ public abstract class AbstractLlmProvider implements LlmProviderPort {
             @Override
             public void onCompleteResponse(ChatResponse response) {
                 log.debug("Streaming completed on provider [{}], chars received: {}",
-                        getProviderName(), buffer.length());
+                        getId(), buffer.length());
                 latch.countDown();
             }
 
             @Override
             public void onError(Throwable error) {
-                log.warn("Streaming error on provider [{}]: {}", getProviderName(), error.getMessage());
+                log.warn("Streaming error on provider [{}]: {}", getId(), error.getMessage());
                 errorRef.set(error);
                 latch.countDown();
             }
@@ -85,13 +103,13 @@ public abstract class AbstractLlmProvider implements LlmProviderPort {
 
         try {
             latch.await();
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new LlmStreamingException(getProviderName(), "Streaming interrupted", e);
+            throw new LlmStreamingException(getId(), "Streaming interrupted", ex);
         }
 
         if (errorRef.get() != null) {
-            throw new LlmStreamingException(getProviderName(),
+            throw new LlmStreamingException(getId(),
                     "Streaming failed: " + errorRef.get().getMessage(), errorRef.get());
         }
 

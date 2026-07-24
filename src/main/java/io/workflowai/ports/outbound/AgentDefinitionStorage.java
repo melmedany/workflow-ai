@@ -1,12 +1,12 @@
 package io.workflowai.ports.outbound;
 
-import io.workflowai.domain.model.AgentDefinition;
+import io.workflowai.domain.agents.AgentDefinition;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface AgentDefinitionStoragePort {
+public interface AgentDefinitionStorage {
     List<AgentDefinition> findAll();
 
     Optional<AgentDefinition> findById(UUID agentId);

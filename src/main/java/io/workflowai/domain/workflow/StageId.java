@@ -1,16 +1,28 @@
 package io.workflowai.domain.workflow;
 
 public enum StageId {
-    PERSIST_USER_MESSAGE,
-    LOAD_MEMORY,
-    CLASSIFICATION,
-    ROUTING,
-    EXECUTE_WORKFLOW,
-    GENERATE_CLARIFICATION,
-    GENERATE_REDIRECT,
-    APPLY_REFUSE,
-    SELF_VERIFICATION,
-    PERSIST_RESPONSE,
-    PERSIST_MEMORY,
-    COMPLETE
+    GUARDRAIL_INPUT(false),
+    PERSIST_USER_MESSAGE(false),
+    LOAD_MEMORY(false),
+    CLASSIFICATION(true),
+    EXECUTE_WORKFLOW(true),
+    GENERATE_CLARIFICATION(true),
+    GENERATE_GREETING(true),
+    GENERATE_REDIRECT(true),
+    GENERATE_REFUSAL(true),
+    GUARDRAIL_OUTPUT(false),
+    SELF_VERIFICATION(true),
+    PERSIST_RESPONSE(false),
+    COMPACT_MEMORY(false),
+    COMPLETE(true);
+
+    private final boolean agentFacing;
+
+    StageId(boolean agentFacing) {
+        this.agentFacing = agentFacing;
+    }
+
+    public boolean isAgentFacing() {
+        return agentFacing;
+    }
 }

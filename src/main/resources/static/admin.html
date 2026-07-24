@@ -17,7 +17,7 @@
         <header>
             <a href="/" class="back-link admin-back"><i data-lucide="arrow-left"></i> Home</a>
             <h1 class="logo">Agents Admin</h1>
-            <p class="tagline">Manage database-backed agent configuration</p>
+            <p class="tagline">Manage database-backed agent properties</p>
         </header>
 
         <main class="admin-layout">
@@ -31,11 +31,12 @@
 
             <form id="agent-form" class="admin-form">
                 <div class="admin-form-intro">
-                    <h2>Agent configuration</h2>
-                    <p>Choose an agent, select one of the supported providers and models, then enter list values one per line.</p>
+                    <h2>Agent properties</h2>
+                    <p>Choose an agent, select one of the supported LLM providers and models, then enter the agent contract.</p>
                 </div>
                 <div class="checkbox-row">
                     <label><input id="agent-enabled" type="checkbox"> Agent enabled</label>
+                    <label><input id="memory-enabled" type="checkbox"> Memory enabled</label>
                 </div>
                 <label>Agent ID
                     <input id="agent-id" disabled>
@@ -47,8 +48,8 @@
                     <input id="description" type="text" required>
                 </label>
                 <div class="form-grid">
-                    <label>Providers
-                        <select id="provider" required></select>
+                    <label>LLM Providers
+                        <select id="llm-provider" required></select>
                         <span class="field-help">System-supported LLM provider for this agent.</span>
                     </label>
                     <label>Models
@@ -58,46 +59,54 @@
                     <label>Temperature
                         <input id="temperature" type="number" min="0" max="2" step="0.1" required>
                     </label>
-                    <label>Memory limit
-                        <input id="memory-limit" type="number" min="0" step="1" required>
-                    </label>
-                </div>
-                <div class="checkbox-row">
-                    <label><input id="memory-enabled" type="checkbox"> Memory enabled</label>
-                    <label><input id="validation-enabled" type="checkbox"> Validation enabled</label>
                 </div>
                 <label>Agent Prompt
                     <textarea id="agent-prompt" rows="10" required></textarea>
-                    <span class="field-help">Instructions and guidelinesfor the agent.</span>
+                    <span class="field-help">Instructions and guidelines for the agent.</span>
                 </label>
-                <label>Capabilities (one per line)
-                    <textarea id="capabilities" rows="5" required></textarea>
+                <label>Supported Capabilities (one per line)
+                    <textarea id="supported-capabilities" rows="5"></textarea>
                     <span class="field-help">Used by routing to decide which requests the agent can handle.</span>
                 </label>
-                <label>Greetings (one per line)
-                    <textarea id="greetings" rows="3" required></textarea>
-                    <span class="field-help">Shown as possible opening messages for this agent.</span>
+                <label>Failed-to-process fallback
+                    <textarea id="fallback-failed-to-process" rows="3" required></textarea>
+                    <span class="field-help">Used only if the model cannot generate a greeting, refusal, or redirect response.</span>
                 </label>
-                <label>Refuse messages (one per line)
-                    <textarea id="refuse-messages" rows="3" required></textarea>
-                    <span class="field-help">Used when a request is outside this agent's allowed scope.</span>
+                <div class="admin-form-intro">
+                    <h3>Response contract</h3>
+                    <p>What a valid generated response must look like. Self-verification retries once when a response fails this check.</p>
+                </div>
+                <div class="form-grid">
+                    <label>Response format
+                        <select id="response-format">
+                            <option value="TEXT">Free text</option>
+                            <option value="JSON">JSON</option>
+                        </select>
+                    </label>
+                    <label>Minimum length
+                        <input id="response-min-length" type="number" min="0" step="1" value="0">
+                        <span class="field-help">Characters. 0 disables the check.</span>
+                    </label>
+                </div>
+                <label id="response-required-fields-row" class="hidden">Required JSON fields (one per line)
+                    <textarea id="response-required-fields" rows="4"></textarea>
+                    <span class="field-help">Top-level field names the JSON response must contain, e.g. confirmationStatus.</span>
                 </label>
-                <label>Redirect messages (one per line)
-                    <textarea id="redirect-messages" rows="3" required></textarea>
-                    <span class="field-help">Used when the user should be guided to another agent or capability.</span>
-                </label>
-                <label>Max retries
-                    <input id="max-retries" type="number" min="0" step="1" required>
-                </label>
+                <section class="workflow-diagram-panel">
+                    <h3>Workflow diagram</h3>
+                    <div id="workflow-diagram" class="workflow-diagram">Select an agent to view its workflow.</div>
+                </section>
                 <div id="admin-status" class="admin-status"></div>
                 <div class="form-actions">
-                    <button type="submit" id="save-agent-btn">Save agent</button>
+                    <button type="submit" id="save-agent-btn" class="save-agent-btn">Save agent</button>
                     <button type="button" id="delete-agent-btn" class="danger-btn">Delete</button>
                 </div>
             </form>
         </main>
     </div>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.25.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.2/dist/svg-pan-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.min.js"></script>
     <script src="./js/helpers.js"></script>
     <script src="./js/agents.js"></script>
 </body>

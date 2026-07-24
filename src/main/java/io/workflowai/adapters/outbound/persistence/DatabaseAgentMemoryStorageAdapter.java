@@ -2,17 +2,15 @@ package io.workflowai.adapters.outbound.persistence;
 
 import io.workflowai.adapters.outbound.persistence.agentmemory.AgentMemoryEntity;
 import io.workflowai.adapters.outbound.persistence.agentmemory.AgentMemoryRepository;
-import io.workflowai.domain.model.ConversationMessage;
-import io.workflowai.domain.model.ConversationMessageRole;
-import io.workflowai.ports.outbound.AgentMemoryStoragePort;
+import io.workflowai.ports.outbound.AgentMemoryStorage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
-public class DatabaseAgentMemoryStorageAdapter implements AgentMemoryStoragePort {
+public class DatabaseAgentMemoryStorageAdapter implements AgentMemoryStorage {
 
   private final AgentMemoryRepository repository;
 
@@ -21,18 +19,20 @@ public class DatabaseAgentMemoryStorageAdapter implements AgentMemoryStoragePort
   }
 
   @Override
-  public List<ConversationMessage> getHistory(UUID conversationId, UUID agentId) {
+  public Optional<String> getMemory(UUID conversationId, UUID agentId) {
     return repository
-        .findByConversationIdAndAgentIdOrderByCreatedAtAsc(conversationId, agentId)
-        .stream()
-        .map(e -> new ConversationMessage(ConversationMessageRole.AGENT, e.content()))
-        .toList();
+        .findByConversationIdAndAgentId(conversationId, agentId)
+        .map(AgentMemoryEntity::content);
   }
 
   @Override
   @Transactional
-  public void add(UUID conversationId, UUID agentId, String content) {
-    repository.save(new AgentMemoryEntity(conversationId, agentId, content));
+  public void replace(UUID conversationId, UUID agentId, String content) {
+    AgentMemoryEntity memory = repository
+        .findByConversationIdAndAgentId(conversationId, agentId)
+        .orElseGet(() -> new AgentMemoryEntity(conversationId, agentId, content));
+    memory.replaceContent(content);
+    repository.save(memory);
   }
 
   @Override

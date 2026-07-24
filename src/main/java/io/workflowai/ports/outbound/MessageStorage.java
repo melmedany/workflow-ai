@@ -5,7 +5,7 @@ import io.workflowai.domain.model.ConversationMessage;
 import java.util.List;
 import java.util.UUID;
 
-public interface MessageStoragePort {
+public interface MessageStorage {
 
     void save(UUID conversationId, UUID agentId, ConversationMessage message);
 

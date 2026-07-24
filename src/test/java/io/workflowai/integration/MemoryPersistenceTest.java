@@ -1,13 +1,12 @@
 package io.workflowai.integration;
 
-import io.workflowai.domain.model.ConversationMessage;
-import io.workflowai.ports.outbound.AgentMemoryStoragePort;
-import io.workflowai.ports.outbound.ConversationStoragePort;
+import io.workflowai.ports.outbound.AgentMemoryStorage;
+import io.workflowai.ports.outbound.ConversationStorage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,39 +14,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Sql
 class MemoryPersistenceTest extends IntegrationBase {
 
-    // agent is defined via ChatEndpointTest.sql
+    // agent is defined via MemoryPersistenceTest.sql
     private final UUID AGENT_ID = UUID.fromString("c7d5842d-cece-490b-9fcc-c6865611e94b");
 
     @Autowired
-    ConversationStoragePort conversationStoragePort;
+    ConversationStorage conversationStorage;
 
     @Autowired
-    AgentMemoryStoragePort agentMemoryStoragePort;
+    AgentMemoryStorage agentMemoryStorage;
 
     @Test
     void memoryDoesNotLeakIntoDifferentConversations() {
-        UUID conversationId = conversationStoragePort.create(AGENT_ID, "agent memory test").id();
+        UUID conversationId = conversationStorage.create(AGENT_ID, "agent memory test").id();
 
-        agentMemoryStoragePort.add(conversationId, AGENT_ID, "agent remembered: refactor with SOLID");
+        agentMemoryStorage.replace(conversationId, AGENT_ID, "agent remembered: refactor with SOLID");
 
-        List<ConversationMessage> agentMemory = agentMemoryStoragePort.getHistory(conversationId, AGENT_ID);
+        Optional<String> agentMemory = agentMemoryStorage.getMemory(conversationId, AGENT_ID);
 
-        assertThat(agentMemory).hasSize(1);
-        assertThat(agentMemory.getFirst().content()).contains("SOLID");
+        assertThat(agentMemory).contains("agent remembered: refactor with SOLID");
 
-        List<ConversationMessage> otherConversation = agentMemoryStoragePort.getHistory(UUID.randomUUID(), AGENT_ID);
-        assertThat(otherConversation).isEmpty();
+        assertThat(agentMemoryStorage.getMemory(UUID.randomUUID(), AGENT_ID)).isEmpty();
     }
 
     @Test
     void clearMemoryForConversation() {
-        UUID conversationId = conversationStoragePort.create(AGENT_ID, "Clear test").id();
-        agentMemoryStoragePort.add(conversationId, AGENT_ID, "some memory");
+        UUID conversationId = conversationStorage.create(AGENT_ID, "Clear test").id();
+        agentMemoryStorage.replace(conversationId, AGENT_ID, "some memory");
 
-        assertThat(agentMemoryStoragePort.getHistory(conversationId, AGENT_ID)).hasSize(1);
+        assertThat(agentMemoryStorage.getMemory(conversationId, AGENT_ID)).contains("some memory");
 
-        agentMemoryStoragePort.clear(conversationId);
+        agentMemoryStorage.clear(conversationId);
 
-        assertThat(agentMemoryStoragePort.getHistory(conversationId, AGENT_ID)).isEmpty();
+        assertThat(agentMemoryStorage.getMemory(conversationId, AGENT_ID)).isEmpty();
     }
 }

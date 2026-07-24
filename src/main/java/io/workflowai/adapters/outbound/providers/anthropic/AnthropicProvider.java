@@ -1,16 +1,20 @@
 package io.workflowai.adapters.outbound.providers.anthropic;
 
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.anthropic.AnthropicChatModel;
 import dev.langchain4j.model.anthropic.AnthropicStreamingChatModel;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import io.workflowai.adapters.outbound.providers.AbstractLlmProvider;
+import io.workflowai.application.LLMProviderId;
 import io.workflowai.domain.exceptions.LlmCallException;
-import io.workflowai.domain.model.LlmRequest;
+import io.workflowai.domain.model.LLMRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -20,29 +24,22 @@ public class AnthropicProvider extends AbstractLlmProvider {
     private static final Logger log = LoggerFactory.getLogger(AnthropicProvider.class);
     // TODO make configurable
     private static final Set<String> SUPPORTED_MODELS = Set.of(
-            "claude-haiku-4-5", "claude-sonnet-4-6", "claude-sonnet-5",
-            "claude-opus-4-7", "claude-opus-4-8"
+            "claude-haiku-4-5", "claude-sonnet-4.6", "claude-sonnet-5",
+            "claude-opus-4.7", "claude-opus-4.8"
     );
 
     private final AnthropicProperties properties;
-    private ChatModel defaultChatModel;
-    private StreamingChatModel defaultStreamingModel;
 
     public AnthropicProvider(AnthropicProperties properties) {
         this.properties = properties;
         if (!properties.isConfigured()) {
-            log.warn("Anthropic provider is not fully configured");
+            log.warn("[{}] is not fully configured", getId());
         }
     }
 
     @Override
-    public String getProviderName() {
-        return "anthropic";
-    }
-
-    @Override
-    public boolean isConfigured() {
-        return properties.isConfigured();
+    public LLMProviderId getId() {
+        return LLMProviderId.Anthropic;
     }
 
     @Override
@@ -56,59 +53,62 @@ public class AnthropicProvider extends AbstractLlmProvider {
     }
 
     @Override
-    public String stream(LlmRequest request, Consumer<String> tokenConsumer) {
+    public String stream(LLMRequest request, Consumer<String> tokenConsumer) {
         String model = resolveModel(request.model(), properties.defaultModel());
-        var messages = buildMessages(request);
-        var streaming = model.equals(properties.defaultModel())
-                ? getDefaultStreamingModel()
+        List<ChatMessage> messages = buildMessages(request);
+        StreamingChatModel streaming = model.equals(properties.defaultModel())
+                ? getDefaultStreamingModel(properties.defaultModel(), properties.defaultTemperature())
                 : buildStreamingModel(model, request.temperature());
         log.debug("Streaming with Anthropic model [{}]", model);
         return doStream(streaming, messages, tokenConsumer);
     }
 
     @Override
-    public String call(LlmRequest request) {
+    public String call(LLMRequest request) {
         String model = resolveModel(request.model(), properties.defaultModel());
-        var messages = buildMessages(request);
-        var chat = model.equals(properties.defaultModel())
-                ? getDefaultChatModel()
+        List<ChatMessage> messages = buildMessages(request);
+        ChatModel chat = model.equals(properties.defaultModel())
+                ? getDefaultChatModel(properties.defaultModel(), properties.defaultTemperature())
                 : buildChatModel(model, request.temperature());
         log.debug("Calling Anthropic model [{}]", model);
         try {
             return chat.chat(messages).aiMessage().text();
-        } catch (Exception e) {
-            throw new LlmCallException(getProviderName(), "Sync call failed for model [%s]".formatted(model), e);
+        } catch (Exception ex) {
+            throw new LlmCallException(getId(), "Sync call failed for model [%s]".formatted(model), ex);
         }
     }
 
-    private ChatModel getDefaultChatModel() {
-        if (defaultChatModel == null) {
-            defaultChatModel = buildChatModel(properties.defaultModel(), properties.temperature());
-            log.info("{} provider initialised: {}", getProviderName(), properties.defaultModel());
-        }
-        return defaultChatModel;
-    }
-
-    private StreamingChatModel getDefaultStreamingModel() {
-        if (defaultStreamingModel == null) {
-            defaultStreamingModel = buildStreamingModel(properties.defaultModel(), properties.temperature());
-        }
-        return defaultStreamingModel;
-    }
-
-    private ChatModel buildChatModel(String model, double temperature) {
+    @Override
+    protected ChatModel buildChatModel(String model, double temperature) {
         return AnthropicChatModel.builder()
+                .baseUrl(properties.baseUrl)
                 .apiKey(properties.apiKey())
                 .modelName(model)
                 .temperature(temperature)
                 .build();
     }
 
-    private StreamingChatModel buildStreamingModel(String model, double temperature) {
+    @Override
+    protected StreamingChatModel buildStreamingModel(String model, double temperature) {
         return AnthropicStreamingChatModel.builder()
+                .baseUrl(properties.baseUrl)
                 .apiKey(properties.apiKey())
                 .modelName(model)
                 .temperature(temperature)
                 .build();
+    }
+
+    @ConfigurationProperties(prefix = "langchain4j.providers.anthropic")
+    public record AnthropicProperties(String baseUrl, String apiKey, String defaultModel, double defaultTemperature) {
+
+        public boolean isConfigured() {
+            return isConfigured(baseUrl) && isConfigured(apiKey);
+        }
+
+        private static boolean isConfigured(String value) {
+            return value != null && !"not-configured".equals(value) && !value.isBlank();
+
+        }
     }
 }
+

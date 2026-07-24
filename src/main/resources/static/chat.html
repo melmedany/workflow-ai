@@ -19,7 +19,10 @@
             <div id="agent-header" class="agent-header-info">
                 <span id="agent-avatar" class="agent-avatar-sm">?</span>
                 <div>
-                    <h2 id="agent-name">Loading...</h2>
+                    <div class="agent-name-row">
+                        <h2 id="agent-name">Loading...</h2>
+                        <span id="agent-llm-badge" class="llm-badge hidden">Loading..</span>
+                    </div>
                     <p id="agent-desc">Loading...</p>
                 </div>
             </div>
@@ -38,7 +41,7 @@
                 placeholder="Ask something... (Shift+Enter for newline)"
                 rows="3"
                 autofocus></textarea>
-            <button id="send-btn">Send</button>
+            <button id="send-btn" class="send-btn">Send</button>
         </div>
     </main>
     <script src="https://unpkg.com/lucide@latest"></script>

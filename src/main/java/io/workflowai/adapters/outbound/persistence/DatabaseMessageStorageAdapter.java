@@ -3,7 +3,7 @@ package io.workflowai.adapters.outbound.persistence;
 import io.workflowai.adapters.outbound.persistence.messages.MessageEntity;
 import io.workflowai.adapters.outbound.persistence.messages.MessageRepository;
 import io.workflowai.domain.model.ConversationMessage;
-import io.workflowai.ports.outbound.MessageStoragePort;
+import io.workflowai.ports.outbound.MessageStorage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-public class DatabaseMessageStorageAdapter implements MessageStoragePort {
+public class DatabaseMessageStorageAdapter implements MessageStorage {
 
   private final MessageRepository repository;
 
@@ -28,7 +28,7 @@ public class DatabaseMessageStorageAdapter implements MessageStoragePort {
   @Override
   public List<ConversationMessage> findByAgentIdAndConversationId(UUID agentId, UUID conversationId) {
     return repository.findByAgentIdAndConversationIdOrderByCreatedAtAsc(agentId, conversationId).stream()
-        .map(e -> new ConversationMessage(e.role(), e.content()))
+        .map(e -> new ConversationMessage(e.role(), e.content(), e.addToMemory()))
         .toList();
   }
 }

@@ -1,47 +1,45 @@
 package io.workflowai.adapters.outbound.providers.openai;
 
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
-import io.workflowai.adapters.outbound.providers.AbstractLlmProvider;
+import io.workflowai.adapters.outbound.providers.AbstractOpenAiProvider;
+import io.workflowai.application.LLMProviderId;
 import io.workflowai.domain.exceptions.LlmCallException;
-import io.workflowai.domain.model.LlmRequest;
+import io.workflowai.domain.model.LLMRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
 @Component
-public class OpenAiProvider extends AbstractLlmProvider {
+public class OpenAiProvider extends AbstractOpenAiProvider {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiProvider.class);
     // TODO make configurable
     private static final Set<String> SUPPORTED_MODELS = Set.of(
-            "gpt-5.1", "gpt-5.4", "gpt-5.5", "gpt-5", "gpt-5-mini",
-            "gpt-5-nano", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano");
+            "gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol",
+            "gpt-5.5", "gpt-5.4", "gpt-5.1", "gpt-5", "gpt-5-mini", "gpt-5-nano",
+            "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
+            "o3", "o4-mini", "o3-pro");
 
     private final OpenAiProperties properties;
-    private ChatModel defaultChatModel;
-    private StreamingChatModel defaultStreamingModel;
 
     public OpenAiProvider(OpenAiProperties properties) {
+        super(properties.baseUrl(), properties.apiKey(), properties.defaultModel(), properties.defaultTemperature());
         this.properties = properties;
         if (!properties.isConfigured()) {
-            log.warn("{}} is not fully configured", getProviderName());
+            log.warn("[{}] is not fully configured", getId());
         }
     }
 
     @Override
-    public String getProviderName() {
-        return "openai";
-    }
-
-    @Override
-    public boolean isConfigured() {
-        return properties.isConfigured();
+    public LLMProviderId getId() {
+        return LLMProviderId.OpenAI;
     }
 
     @Override
@@ -55,61 +53,40 @@ public class OpenAiProvider extends AbstractLlmProvider {
     }
 
     @Override
-    public String stream(LlmRequest request, Consumer<String> tokenConsumer) {
-        String model = resolveModel(request.model(), properties.defaultModel());
-        var messages = buildMessages(request);
-        var streaming = model.equals(properties.defaultModel())
-                ? getDefaultStreamingModel()
-                : buildStreamingModel(model, request.temperature());
-        log.debug("Streaming with {} model [{}]", getProviderName(), model);
+    public String stream(LLMRequest request, Consumer<String> tokenConsumer) {
+        String resolvedModel = resolveModel(request.model(), properties.defaultModel());
+        List<ChatMessage> messages = buildMessages(request);
+        StreamingChatModel streaming = resolvedModel.equals(properties.defaultModel())
+                ? getDefaultStreamingModel(properties.defaultModel, properties.defaultTemperature)
+                : buildStreamingModel(resolvedModel, request.temperature());
+        log.debug("Streaming with {} model [{}]", getId(), resolvedModel);
         return doStream(streaming, messages, tokenConsumer);
     }
 
     @Override
-    public String call(LlmRequest request) {
-        String model = resolveModel(request.model(), properties.defaultModel());
-        var messages = buildMessages(request);
-        var chat = model.equals(properties.defaultModel())
-                ? getDefaultChatModel()
-                : buildChatModel(model, request.temperature());
-        log.debug("Calling {} model [{}]", getProviderName(), model);
+    public String call(LLMRequest request) {
+        String resolvedModel = resolveModel(request.model(), properties.defaultModel());
+        List<ChatMessage> messages = buildMessages(request);
+        ChatModel chat = resolvedModel.equals(properties.defaultModel())
+                ? getDefaultChatModel(properties.defaultModel, properties.defaultTemperature)
+                : buildChatModel(resolvedModel, request.temperature());
+        log.debug("Calling {} model [{}]", getId(), resolvedModel);
         try {
             return chat.chat(messages).aiMessage().text();
-        } catch (Exception e) {
-            throw new LlmCallException(getProviderName(), "Sync call failed for model [%s]".formatted(model), e);
+        } catch (Exception ex) {
+            throw new LlmCallException(getId(), "Sync call failed for model [%s]".formatted(resolvedModel), ex);
         }
     }
 
-    private ChatModel getDefaultChatModel() {
-        if (defaultChatModel == null) {
-            defaultChatModel = buildChatModel(properties.defaultModel(), properties.temperature());
-            log.info("{} provider initialised: {}", getProviderName(), properties.defaultModel());
+    @ConfigurationProperties(prefix = "langchain4j.providers.openai")
+    public record OpenAiProperties(String baseUrl, String apiKey, String defaultModel, double defaultTemperature) {
+
+        public boolean isConfigured() {
+            return isConfigured(baseUrl) && isConfigured(apiKey);
         }
-        return defaultChatModel;
-    }
 
-    private StreamingChatModel getDefaultStreamingModel() {
-        if (defaultStreamingModel == null) {
-            defaultStreamingModel = buildStreamingModel(properties.defaultModel(), properties.temperature());
+        private static boolean isConfigured(String value) {
+            return value != null && !"not-configured".equals(value) && !value.isBlank();
         }
-        return defaultStreamingModel;
-    }
-
-    private ChatModel buildChatModel(String model, double temperature) {
-        return OpenAiChatModel.builder()
-                .baseUrl(properties.baseUrl())
-                .apiKey(properties.apiKey())
-                .modelName(model)
-                .temperature(temperature)
-                .build();
-    }
-
-    private StreamingChatModel buildStreamingModel(String model, double temperature) {
-        return OpenAiStreamingChatModel.builder()
-                .baseUrl(properties.baseUrl())
-                .apiKey(properties.apiKey())
-                .modelName(model)
-                .temperature(temperature)
-                .build();
     }
 }

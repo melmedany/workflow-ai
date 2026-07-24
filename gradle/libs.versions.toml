@@ -3,7 +3,8 @@ springboot = "4.1.0"
 springdependencymanagement = "1.1.7"
 langchain4j = "1.16.3"
 langgraph4j = "1.8.19"
-jackson = "2.19.0"
+flyway = "12.10.0"
+postgres = "42.7.13"
 junit = "5.14.1"
 restassured = "6.0.0"
 testcontainers = "2.0.5"
@@ -11,13 +12,12 @@ archunit = "1.4.2"
 
 [libraries]
 spring-boot-web = { group = "org.springframework.boot", name = "spring-boot-starter-web" }
+spring-boot-restclient = { group = "org.springframework.boot", name = "spring-boot-starter-restclient" }
 spring-boot-data = { group = "org.springframework.boot", name = "spring-boot-starter-data-jpa" }
 spring-boot-flyway = { group = "org.springframework.boot", name = "spring-boot-starter-flyway" }
 spring-boot-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation" }
 spring-boot-test = { group = "org.springframework.boot", name = "spring-boot-starter-test" }
 spring-boot-testcontainers = { group = "org.springframework.boot", name = "spring-boot-testcontainers" }
-
-spring-boot-devtools = { group= "org.springframework.boot", name = "spring-boot-devtools"}
 
 langchain4j-bom = { group = "dev.langchain4j", name = "langchain4j-bom", version.ref = "langchain4j" }
 langchain4j-core = { group = "dev.langchain4j", name = "langchain4j-core" }
@@ -26,10 +26,8 @@ langchain4j-openai = { group = "dev.langchain4j", name = "langchain4j-open-ai" }
 langchain4j-anthropic = { group = "dev.langchain4j", name = "langchain4j-anthropic" }
 langgraph4j-core = { group = "org.bsc.langgraph4j", name = "langgraph4j-core", version.ref = "langgraph4j" }
 
-jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "jackson" }
-
-flyway-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql" }
-postgresql = { group = "org.postgresql", name = "postgresql" }
+flyway-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql", version.ref = "flyway" }
+postgresql = { group = "org.postgresql", name = "postgresql", version.ref = "postgres" }
 
 junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junit" }
 

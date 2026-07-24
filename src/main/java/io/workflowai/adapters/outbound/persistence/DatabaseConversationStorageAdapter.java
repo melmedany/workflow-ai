@@ -3,7 +3,7 @@ package io.workflowai.adapters.outbound.persistence;
 import io.workflowai.adapters.outbound.persistence.conversation.ConversationEntity;
 import io.workflowai.adapters.outbound.persistence.conversation.ConversationRepository;
 import io.workflowai.domain.model.Conversation;
-import io.workflowai.ports.outbound.ConversationStoragePort;
+import io.workflowai.ports.outbound.ConversationStorage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-public class DatabaseConversationStorageAdapter implements ConversationStoragePort {
+public class DatabaseConversationStorageAdapter implements ConversationStorage {
 
     private final ConversationRepository repository;
 

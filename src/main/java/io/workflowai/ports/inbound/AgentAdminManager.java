@@ -1,14 +1,16 @@
 package io.workflowai.ports.inbound;
 
-import io.workflowai.domain.model.AgentDefinition;
-import io.workflowai.domain.model.ProviderOption;
+import io.workflowai.application.LLMProviderId;
+import io.workflowai.domain.agents.AgentDefinition;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
-public interface AgentAdminPort {
+public interface AgentAdminManager {
 
-    List<ProviderOption> supportedProviders();
+    Map<LLMProviderId, Set<String>> supportedLLMProviders();
 
     List<AgentDefinition> getAllDefinitions();
 

@@ -12,15 +12,15 @@ public record RoutingDecision(
         String clarificationQuestion,
         String reason) implements Serializable {
 
-    public static RoutingDecision greet() {
-        return new RoutingDecision(DecisionMode.GREET, List.of(), null, null, null);
+    public static RoutingDecision greet(String reason, String extractedIntent) {
+        return new RoutingDecision(DecisionMode.GREET, List.of(), extractedIntent, null, reason);
+    }
+
+    public static RoutingDecision redirect(String reason, String extractedIntent) {
+        return new RoutingDecision(DecisionMode.REDIRECT, List.of(), extractedIntent, null, reason);
     }
 
     public static RoutingDecision refuse(String reason, String extractedIntent) {
         return new RoutingDecision(DecisionMode.REFUSE, List.of(), extractedIntent, null, reason);
-    }
-
-    public static RoutingDecision execute(String intent, List<String> topics) {
-        return new RoutingDecision(DecisionMode.EXECUTE, topics, intent, null, "Request is valid and actionable");
     }
 }

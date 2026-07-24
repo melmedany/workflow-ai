@@ -7,7 +7,7 @@ import java.util.UUID;
 public class PipelineStageException extends WorkflowExecutionException {
 
     public PipelineStageException(UUID agentId, StageId stageId, String message) {
-        super(agentId, "Stage [%s] failed: %s".formatted(stageId, message));
+        this(agentId, stageId, message, null);
     }
 
     public PipelineStageException(UUID agentId, StageId stageId, String message, Throwable cause) {

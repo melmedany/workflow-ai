@@ -5,14 +5,16 @@ import io.workflowai.adapters.inbound.rest.dto.ChatRequest;
 import io.workflowai.adapters.inbound.rest.dto.ConversationResponse;
 import io.workflowai.adapters.inbound.rest.dto.DecisionPayload;
 import io.workflowai.adapters.inbound.rest.dto.ErrorPayload;
+import io.workflowai.adapters.inbound.rest.dto.EventType;
 import io.workflowai.adapters.inbound.rest.dto.Mappers;
 import io.workflowai.adapters.inbound.rest.dto.MessageResponse;
 import io.workflowai.adapters.inbound.rest.dto.StagePayload;
 import io.workflowai.application.ConversationService;
 import io.workflowai.domain.model.AgentRequest;
 import io.workflowai.domain.workflow.PipelineEvent;
-import io.workflowai.ports.inbound.AgentPort;
-import io.workflowai.ports.inbound.ConversationPort;
+import io.workflowai.domain.workflow.StageId;
+import io.workflowai.ports.inbound.AgentProvider;
+import io.workflowai.ports.inbound.ConversationProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -32,8 +34,19 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+import static io.workflowai.adapters.inbound.rest.dto.EventType.CONVERSATION_COMPLETED;
+import static io.workflowai.adapters.inbound.rest.dto.EventType.CONVERSATION_CREATED;
+import static io.workflowai.adapters.inbound.rest.dto.EventType.DECISION;
+import static io.workflowai.adapters.inbound.rest.dto.EventType.ERROR;
+import static io.workflowai.adapters.inbound.rest.dto.EventType.MEMORY_UPDATED;
+import static io.workflowai.adapters.inbound.rest.dto.EventType.RESPONSE_COMPLETED;
+import static io.workflowai.adapters.inbound.rest.dto.EventType.STAGE;
+import static io.workflowai.adapters.inbound.rest.dto.EventType.TOKEN;
 import static io.workflowai.adapters.inbound.rest.dto.Mappers.toAgentInfo;
 import static io.workflowai.adapters.inbound.rest.dto.Mappers.toConversationResponse;
+import static io.workflowai.adapters.inbound.rest.dto.StagePayload.StageStatus.COMPLETED;
+import static io.workflowai.adapters.inbound.rest.dto.StagePayload.StageStatus.FAILED;
+import static io.workflowai.adapters.inbound.rest.dto.StagePayload.StageStatus.STARTED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE;
 import static org.springframework.http.MediaType.TEXT_PLAIN;
@@ -44,12 +57,12 @@ public class AgentController {
 
     private static final Logger log = LoggerFactory.getLogger(AgentController.class);
 
-    private final AgentPort agentService;
-    private final ConversationPort conversationService;
+    private final AgentProvider agentService;
+    private final ConversationProvider conversationService;
     private final JsonMapper jsonMapper;
 
     public AgentController(
-            AgentPort agentService,
+            AgentProvider agentService,
             ConversationService conversationService,
             JsonMapper jsonMapper) {
         this.agentService = agentService;
@@ -88,7 +101,7 @@ public class AgentController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteConversation(@PathVariable UUID agentId, @PathVariable UUID conversationId) {
         conversationService.deleteConversation(agentId, conversationId);
-        log.info("Conversation [{}] deleted", conversationId);
+        log.debug("Conversation [{}] deleted", conversationId);
     }
 
     @GetMapping("/{agentId}/conversations/{conversationId}/messages")
@@ -104,7 +117,7 @@ public class AgentController {
         UUID conversationId = resolveConversationId(convId, agentId, request);
         ConversationResponse conversation = toConversationResponse(conversationService.getConversation(agentId, conversationId));
 
-        SseEmitter emitter = new SseEmitter(120_000L);
+        SseEmitter emitter = new SseEmitter(300_000L);
         emitter.onTimeout(emitter::complete);
         emitter.onError(e -> {
             log.warn("SSE connection error for conversation [{}]: {}", conversationId, e.getMessage());
@@ -114,17 +127,18 @@ public class AgentController {
         Thread.startVirtualThread(() -> {
             try {
                 if (newConversation) {
-                    sendJson(emitter, "conversation_created", conversation);
+                    sendJson(emitter, CONVERSATION_CREATED, conversation);
                 }
 
-                agentService
-                        .get(conversation.agentId())
-                        .execute(new AgentRequest(request.message(), conversationId), event -> handleEvent(emitter, conversationId, event));
+                agentService.trigger(
+                        AgentRequest.userMessage(agentId, conversationId, request.message()),
+                        event -> handleEvent(emitter, event)
+                );
                 emitter.complete();
-            } catch (Exception e) {
-                log.warn("Chat execution failed for conversation [{}]: {}", conversationId, e.getMessage());
-                sendError(emitter, e.getMessage());
-                emitter.completeWithError(e);
+            } catch (Exception ex) {
+                log.warn("Chat execution failed for conversation [{}]: {}", conversationId, ex.getMessage());
+                sendError(emitter, ex.getMessage());
+                emitter.completeWithError(ex);
             }
         });
 
@@ -138,44 +152,50 @@ public class AgentController {
 
     // ── Event dispatch ───────────────────────────────────────────────────────
 
-    private void handleEvent(SseEmitter emitter, UUID conversationId, PipelineEvent event) {
+    private void handleEvent(SseEmitter emitter, PipelineEvent event) {
         switch (event) {
             case PipelineEvent.StageStarted e ->
-                    sendJson(emitter, "stage", new StagePayload(e.stageId().name(), "STARTED", e.label(), null));
+                    sendStage(emitter, e.stageId(), e.stageId().isAgentFacing(), STARTED, e.label(), null);
             case PipelineEvent.StageCompleted e ->
-                    sendJson(emitter, "stage", new StagePayload(e.stageId().name(), "COMPLETED", e.label(), null));
+                    sendStage(emitter, e.stageId(), e.stageId().isAgentFacing(), COMPLETED, e.label(), null);
             case PipelineEvent.StageFailed e ->
-                    sendJson(emitter, "stage", new StagePayload(e.stageId().name(), "FAILED", e.label(), e.reason()));
+                    sendStage(emitter, e.stageId(), e.stageId().isAgentFacing(), FAILED, e.label(), e.reason());
             case PipelineEvent.DecisionMade e ->
-                    sendJson(emitter, "decision", new DecisionPayload(e.mode().name(), e.reason()));
-            case PipelineEvent.Token e -> sendText(emitter, "token", e.token());
-            case PipelineEvent.ResponseCompleted ignored -> sendJson(emitter, "response_completed", null);
-            case PipelineEvent.MemoryUpdated ignored -> sendJson(emitter, "memory_updated", null);
-            case PipelineEvent.ConversationCompleted ignored -> sendJson(emitter, "conversation_completed", null);
-            case PipelineEvent.Error e -> sendJson(emitter, "error", new ErrorPayload(e.message()));
+                    sendJson(emitter, DECISION, new DecisionPayload(e.mode().name(), e.reason()));
+            case PipelineEvent.Token e -> sendText(emitter, TOKEN, e.token());
+            case PipelineEvent.ResponseCompleted ignored -> sendJson(emitter, RESPONSE_COMPLETED, null);
+            case PipelineEvent.MemoryUpdated ignored -> sendJson(emitter, MEMORY_UPDATED, null);
+            case PipelineEvent.ConversationCompleted ignored -> sendJson(emitter, CONVERSATION_COMPLETED, null);
+            case PipelineEvent.Error e -> sendJson(emitter, ERROR, new ErrorPayload(e.message()));
         }
     }
 
     // ── SSE helpers ──────────────────────────────────────────────────────────
 
-    private void sendJson(SseEmitter emitter, String eventName, Object payload) {
-        try {
-            String data = payload != null ? jsonMapper.writeValueAsString(payload) : "{}";
-            emitter.send(SseEmitter.event().name(eventName).data(data, APPLICATION_JSON));
-        } catch (IOException e) {
-            log.warn("Failed to send SSE event [{}]: {}", eventName, e.getMessage());
-            throw new RuntimeException("SSE write failed for event: " + eventName, e);
-        } catch (Exception e) {
-            log.warn("Failed to serialize SSE event [{}]: {}", eventName, e.getMessage());
+    private void sendStage(SseEmitter emitter, StageId stageId, boolean agentFacing, StagePayload.StageStatus status, String label, String reason) {
+        if (agentFacing) {
+            sendJson(emitter, STAGE, new StagePayload(stageId, status, label, reason));
         }
     }
 
-    private void sendText(SseEmitter emitter, String eventName, String data) {
+    private void sendJson(SseEmitter emitter, EventType eventType, Object payload) {
         try {
-            emitter.send(SseEmitter.event().name(eventName).data(data, TEXT_PLAIN));
-        } catch (IOException e) {
-            log.warn("Failed to send SSE token: {}", e.getMessage());
-            throw new RuntimeException("SSE token write failed", e);
+            String data = payload != null ? jsonMapper.writeValueAsString(payload) : "{}";
+            emitter.send(SseEmitter.event().name(eventType.name()).data(data, APPLICATION_JSON));
+        } catch (IOException ex) {
+            log.warn("Failed to send SSE event [{}]: {}", eventType, ex.getMessage());
+            throw new RuntimeException("SSE write failed for event: " + eventType, ex);
+        } catch (Exception ex) {
+            log.warn("Failed to serialize SSE event [{}]: {}", eventType, ex.getMessage());
+        }
+    }
+
+    private void sendText(SseEmitter emitter, EventType eventType, String data) {
+        try {
+            emitter.send(SseEmitter.event().name(eventType.name()).data(data, TEXT_PLAIN));
+        } catch (IOException ex) {
+            log.warn("Failed to send SSE token: {}", ex.getMessage());
+            throw new RuntimeException("SSE token write failed", ex);
         }
     }
 
@@ -183,8 +203,9 @@ public class AgentController {
         try {
             emitter.send(SseEmitter.event().name("error")
                     .data("{\"message\":\"" + message + "\"}", APPLICATION_JSON));
-        } catch (IOException ignored) {
-            // emitter may already be closed
+        } catch (IOException ex) {
+            log.warn("Failed to send error, emitter may already be closed", ex);
+            //
         }
     }
 }

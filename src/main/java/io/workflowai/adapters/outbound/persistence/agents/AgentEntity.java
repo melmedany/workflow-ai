@@ -26,13 +26,13 @@ public class AgentEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private String details;
 
-    @Column(name = "llm_config", nullable = false, columnDefinition = "jsonb")
+    @Column(name = "llm_properties", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private String llmConfig;
+    private String llmProperties;
 
-    @Column(name = "policy_config", nullable = false, columnDefinition = "jsonb")
+    @Column(name = "workflow_policy_properties", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private String policyConfig;
+    private String workflowPolicyProperties;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -45,10 +45,10 @@ public class AgentEntity {
     protected AgentEntity() {
     }
 
-    public AgentEntity(String details, String llmConfig, String policyConfig) {
+    public AgentEntity(String details, String llmProperties, String workflowPolicyProperties) {
         this.details = details;
-        this.llmConfig = llmConfig;
-        this.policyConfig = policyConfig;
+        this.llmProperties = llmProperties;
+        this.workflowPolicyProperties = workflowPolicyProperties;
     }
 
     public UUID id() {
@@ -59,17 +59,17 @@ public class AgentEntity {
         return details;
     }
 
-    public String llmConfig() {
-        return llmConfig;
+    public String llmProperties() {
+        return llmProperties;
     }
 
-    public String policyConfig() {
-        return policyConfig;
+    public String workflowPolicyProperties() {
+        return workflowPolicyProperties;
     }
 
-    public void update(String details, String llmConfig, String policyConfig) {
+    public void update(String details, String llmProperties, String workflowPolicyProperties) {
         this.details = details;
-        this.llmConfig = llmConfig;
-        this.policyConfig = policyConfig;
+        this.llmProperties = llmProperties;
+        this.workflowPolicyProperties = workflowPolicyProperties;
     }
 }

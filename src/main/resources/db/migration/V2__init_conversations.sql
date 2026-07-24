@@ -15,6 +15,7 @@ CREATE TABLE messages
     agent_id        UUID             NOT NULL,
     role            VARCHAR(20)      NOT NULL,
     content         TEXT             NOT NULL,
+    add_to_memory   BOOLEAN          NOT NULL DEFAULT true,
     created_at      TIMESTAMPTZ      NOT NULL DEFAULT now(),
     FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
     FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE
@@ -28,7 +29,8 @@ CREATE TABLE agent_memory
     content         TEXT             NOT NULL,
     created_at      TIMESTAMP        NOT NULL DEFAULT now(),
     FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
-    FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE
+    FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE,
+    UNIQUE (conversation_id, agent_id)
 );
 
 CREATE INDEX idx_messages_conversation_id ON messages (conversation_id);
