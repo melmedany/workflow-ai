@@ -18,16 +18,61 @@ langchain4j:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       default-model: mistral
       default-temperature: 0.7
+      supported-models:
+        - mistral
+        - deepseek-r1:8b
+        - deepseek-r1:32b
+        - deepseek-r1:671b
+        - mistral:7b
+        - devstral:24b
+        - mistral-large
+        - gemma4:e2b
+        - gemma4:12b
+        - gemma4:26b
+        - qwen3.5:7b
+        - qwen3.6-coder:27b
+        - qwen3.5:122b
+        - llama3.2:3b
+        - llama3.1:8b
+        - llama3.3:70b
+        - phi4:mini
+        - phi5:14b
+        - codellama:7b
+        - starcoder2:15b
     openai:
       base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
       api-key: ${OPENAI_API_KEY:not-configured}
       default-model: gpt-4o-mini
       default-temperature: 0.7
+      supported-models:
+        - gpt-4o-mini
+        - gpt-5.6-luna
+        - gpt-5.6-terra
+        - gpt-5.6-sol
+        - gpt-5.5
+        - gpt-5.4
+        - gpt-5.1
+        - gpt-5
+        - gpt-5-mini
+        - gpt-5-nano
+        - gpt-4.1
+        - gpt-4.1-mini
+        - gpt-4.1-nano
+        - o3
+        - o4-mini
+        - o3-pro
     anthropic:
       base-url: ${ANTHROPIC_BASE_URL:not-configured}
       api-key: ${ANTHROPIC_API_KEY:not-configured}
       default-model: claude-haiku-4-5-20251001
       default-temperature: 0.7
+      supported-models:
+        - claude-haiku-4-5-20251001
+        - claude-haiku-4-5
+        - claude-sonnet-4.6
+        - claude-sonnet-5
+        - claude-opus-4.7
+        - claude-opus-4.8
 
 workflow-ai:
   stages:
@@ -52,6 +97,10 @@ workflow-ai:
         llm-provider-id: Ollama
         model: llama3.2:3b
         temperature: 0.2
+      - stage-id: COMPACT_MEMORY
+        llm-provider-id: Ollama
+        model: llama3.2:3b
+        temperature: 0.2
   guardrails:
     input-blocked-terms:
       - "ignore previous instructions"
@@ -60,12 +109,39 @@ workflow-ai:
       - "you are now"
       - "reveal your system prompt"
       - "jailbreak"
-      - ...
     output-blocked-terms:
-      - "pii"
+      - "to be added later"
   providers:
     bonzai:
       base-url: ${BONZAI_BASE_URL:https://api-v2.bonzai.iodigital.com}
       api-key: ${BONZAI_API_KEY:not-configured}
       default-model: gemini-3.1-flash
       default-temperature: 0.7
+      supported-models:
+        - gemini-3.1-flash
+        - claude-haiku-4-5
+        - claude-sonnet-4-6
+        - claude-sonnet-5
+        - claude-opus-4-8
+        - Qwen3.6-27B
+        - gemini-3.5-flash
+        - gemini-3.1-flash-lite
+        - glm-5
+        - glm-4.7
+        - glm-4.7-flash
+        - gpt-5.1
+        - gpt-5.4
+        - gpt-5.5
+        - gpt-5
+        - gpt-5-mini
+        - gpt-5-nano
+        - gpt-4.1
+        - gpt-4.1-mini
+        - gpt-4.1-nano
+        - o1
+        - o3
+        - o3-mini
+        - o4-mini
+
+logging.level:
+  io.workflowai: debug

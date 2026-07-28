@@ -1,6 +1,6 @@
 package io.workflowai.application;
 
-public enum LLMProviderId {
+public enum LlmProviderId {
     Anthropic,
     Bonzai,
     Ollama,

@@ -1,14 +1,14 @@
 package io.workflowai.domain.exceptions;
 
-import io.workflowai.application.LLMProviderId;
+import io.workflowai.application.LlmProviderId;
 
 public class LlmStreamingException extends LlmProviderException {
 
-    public LlmStreamingException(LLMProviderId providerId, String message) {
-        super(providerId, message);
+    public LlmStreamingException(LlmProviderId providerId, String message) {
+        this(providerId, message, null);
     }
 
-    public LlmStreamingException(LLMProviderId providerId, String message, Throwable cause) {
+    public LlmStreamingException(LlmProviderId providerId, String message, Throwable cause) {
         super(providerId, message, cause);
     }
 }

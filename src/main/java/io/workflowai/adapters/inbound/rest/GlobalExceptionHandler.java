@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(LlmProviderException.class)
-    public ResponseEntity<Map<String, Object>> handleLlmProvider(
+    public ResponseEntity<Map<String, Object>> handleLlmProviderException(
             LlmProviderException ex, WebRequest request) {
         log.warn("LLM provider error: {}", ex.getMessage());
         return error(HttpStatus.BAD_GATEWAY, "LLM provider error: " + ex.getMessage(), request);
@@ -106,8 +106,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGeneric(
-            Exception ex, WebRequest request) {
+    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest request) {
+        // TODO handle `Unhandled exception [HttpMessageNotWritableException]: No converter for [class java.util.LinkedHashMap] with preset Content-Type 'text/event-stream'`
         log.warn("Unhandled exception [{}]: {}", ex.getClass().getSimpleName(), ex.getMessage());
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", request);
     }

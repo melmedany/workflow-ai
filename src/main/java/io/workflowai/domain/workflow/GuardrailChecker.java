@@ -4,6 +4,7 @@ import io.workflowai.application.GuardrailProperties;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 public class GuardrailChecker {
 
@@ -23,13 +24,16 @@ public class GuardrailChecker {
         return check(text, outputBlockedTerms);
     }
 
-    // TODO: should do pattern matching for words not whole sentences
     private Optional<String> check(String text, List<String> blockedTerms) {
         if (text == null || text.isBlank()) {
             return Optional.empty();
         }
-        String normalized = text.toLowerCase();
-        return blockedTerms.stream().filter(normalized::contains).findFirst();
+        return blockedTerms.stream()
+                // TODO: this is very inefficient, compiling terms with evey text to check. Consider a more efficient way (recompiling is not a good way as well)
+                .filter(term -> Pattern.compile("\\b" + Pattern.quote(term) + "\\b", Pattern.CASE_INSENSITIVE)
+                        .matcher(text)
+                        .find())
+                .findFirst();
     }
 
 

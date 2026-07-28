@@ -1,7 +1,7 @@
 package io.workflowai.adapters.inbound.rest;
 
 import io.workflowai.application.AgentService;
-import io.workflowai.application.LLMProviderId;
+import io.workflowai.application.LlmProviderId;
 import io.workflowai.domain.agents.AgentDefinition;
 import io.workflowai.ports.inbound.AgentAdminManager;
 import org.springframework.http.MediaType;
@@ -34,8 +34,8 @@ public class AgentAdminController {
     }
 
     @GetMapping("/supported-llm-providers")
-    public ResponseEntity<Map<LLMProviderId, Set<String>>> supportedLLmProviders() {
-        return ResponseEntity.ok(agentAdminManager.supportedLLMProviders());
+    public ResponseEntity<Map<LlmProviderId, Set<String>>> supportedLLmProviders() {
+        return ResponseEntity.ok(agentAdminManager.supportedLlmProviders());
     }
 
     @GetMapping({"", "/"})

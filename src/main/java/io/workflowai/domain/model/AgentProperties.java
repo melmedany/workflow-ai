@@ -1,6 +1,6 @@
 package io.workflowai.domain.model;
 
-import io.workflowai.application.LLMProviderId;
+import io.workflowai.application.LlmProviderId;
 import io.workflowai.domain.workflow.WorkflowPolicy;
 
 import java.util.UUID;
@@ -13,7 +13,7 @@ public record AgentProperties(
         String displayName,
         String description,
         boolean enabled,
-        LLMProviderId llmProviderId,
+        LlmProviderId llmProviderId,
         String model,
         double temperature,
         String systemPrompt,

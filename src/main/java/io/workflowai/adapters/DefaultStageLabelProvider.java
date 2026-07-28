@@ -4,6 +4,9 @@ import io.workflowai.domain.workflow.StageId;
 
 import java.util.Map;
 
+/**
+ * Default label provider for stages to UI. Should be i18n as per request language.
+ */
 public class DefaultStageLabelProvider {
 
     private static final Map<StageId, String> LABELS = Map.ofEntries(
@@ -33,9 +36,5 @@ public class DefaultStageLabelProvider {
 
     public String failed(StageId stageId) {
         return "%s failed".formatted(LABELS.getOrDefault(stageId, stageId.name()));
-    }
-
-    public String label(StageId stageId) {
-        return LABELS.getOrDefault(stageId, stageId.name());
     }
 }

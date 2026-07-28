@@ -3,7 +3,7 @@ package io.workflowai.integration;
 import io.workflowai.adapters.outbound.persistence.agentrun.AgentRunEntity;
 import io.workflowai.adapters.outbound.persistence.agentrun.AgentRunRepository;
 import io.workflowai.domain.model.AgentRunStatus;
-import io.workflowai.ports.outbound.RunHistoryPort;
+import io.workflowai.ports.outbound.AgentRunTracker;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
@@ -16,23 +16,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @Sql
-class RunHistoryPersistenceTest extends IntegrationBase {
+class DatabaseAgentRunTrackerAdapterTest extends IntegrationBase {
 
-    // agent is defined via RunHistoryPersistenceTest.sql
+    // agent is defined via DatabaseAgentRunTrackerAdapterTest.sql
     private static final UUID AGENT_ID = UUID.fromString("d60ab6a0-6ef9-4ef4-b9b4-f4d21006dd9a");
     private static final UUID CONVERSATION_ID = UUID.fromString("f6e17be6-dbb4-4391-a66d-32e01edac49c");
 
     @Autowired
-    private RunHistoryPort runHistoryPort;
+    private AgentRunTracker agentsRunTracker;
     @Autowired
     private AgentRunRepository agentRunsRepository;
 
     @Test
     void runHistoryPersistsCompletedAndFailedRuns() {
-        UUID completedRunId = runHistoryPort.start(USER_MESSAGE, AGENT_ID, CONVERSATION_ID);
-        runHistoryPort.complete(completedRunId);
-        UUID failedRunId = runHistoryPort.start(SYSTEM_TRIGGER, AGENT_ID, CONVERSATION_ID);
-        runHistoryPort.fail(failedRunId, "Provider unavailable");
+        UUID completedRunId = agentsRunTracker.start(USER_MESSAGE, AGENT_ID, CONVERSATION_ID);
+        agentsRunTracker.complete(completedRunId);
+        UUID failedRunId = agentsRunTracker.start(SYSTEM_TRIGGER, AGENT_ID, CONVERSATION_ID);
+        agentsRunTracker.fail(failedRunId, "Provider unavailable");
 
         AgentRunEntity completed = run(completedRunId);
         assertEquals(USER_MESSAGE, completed.triggerSource());

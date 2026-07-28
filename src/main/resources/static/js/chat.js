@@ -208,12 +208,12 @@ async function sendMessage() {
 
             for (const raw of events) {
                 const lines = raw.split('\n');
-                const eventType = EventType.fromString(lines.find(l => l.startsWith('event:'))?.slice(6).trim());
+                const eventType = lines.find(l => l.startsWith('event:'))?.slice(6).trim()
                 const dataLine = lines.find(l => l.startsWith('data:'));
                 if (!dataLine) continue;
                 const data = dataLine.slice(5);
 
-                switch (eventType) {
+                switch (EventType[eventType]) {
                     case EventType.TOKEN:
                         fullText += data;
                         content.innerHTML = marked.parse(fullText);
@@ -390,36 +390,14 @@ function resizeComposer() {
 }
 
 const EventType =  {
-    CONVERSATION_CREATED: 'Conversation Created',
-    DECISION: 'Decision',
-    TOKEN: 'Token',
-    RESPONSE_COMPLETED: 'Response Completed',
-    MEMORY_UPDATED: 'Memory Updated',
-    CONVERSATION_COMPLETED: 'Conversation Completed',
-    ERROR: 'Error',
-    STAGE: 'Stage',
-    fromString: function (string) {
-        switch (string) {
-            case 'CONVERSATION_CREATED':
-                return this.CONVERSATION_CREATED;
-            case 'DECISION':
-                return this.DECISION;
-            case 'TOKEN':
-                return this.TOKEN;
-            case 'RESPONSE_COMPLETED':
-                return this.RESPONSE_COMPLETED;
-            case 'MEMORY_UPDATED':
-                return this.MEMORY_UPDATED;
-            case 'CONVERSATION_COMPLETED':
-                return this.CONVERSATION_COMPLETED;
-            case 'ERROR':
-                return this.ERROR;
-            case 'STAGE':
-                return this.STAGE;
-            default:
-                throw new Error(`Unknown event type: ${string}`);
-        }
-    }
+    CONVERSATION_CREATED: 'CONVERSATION_CREATED',
+    DECISION: 'DECISION',
+    TOKEN: 'TOKEN',
+    RESPONSE_COMPLETED: 'RESPONSE_COMPLETED',
+    MEMORY_UPDATED: 'MEMORY_UPDATED',
+    CONVERSATION_COMPLETED: 'CONVERSATION_COMPLETED',
+    ERROR: 'ERROR',
+    STAGE: 'STAGE'
 };
 
 // ── Events ────────────────────────────────────────────────────────────────

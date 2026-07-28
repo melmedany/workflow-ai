@@ -3,18 +3,18 @@ package io.workflowai.adapters.outbound.persistence;
 import io.workflowai.adapters.outbound.persistence.agentrun.AgentRunEntity;
 import io.workflowai.adapters.outbound.persistence.agentrun.AgentRunRepository;
 import io.workflowai.domain.model.TriggerSource;
-import io.workflowai.ports.outbound.RunHistoryPort;
+import io.workflowai.ports.outbound.AgentRunTracker;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
 @Service
-public class DatabaseRunHistoryAdapter implements RunHistoryPort {
+public class DatabaseAgentRunTrackerAdapter implements AgentRunTracker {
 
     private final AgentRunRepository repository;
 
-    public DatabaseRunHistoryAdapter(AgentRunRepository repository) {
+    public DatabaseAgentRunTrackerAdapter(AgentRunRepository repository) {
         this.repository = repository;
     }
 

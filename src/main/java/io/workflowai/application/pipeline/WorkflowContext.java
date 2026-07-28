@@ -30,12 +30,14 @@ public class WorkflowContext extends AgentState {
         super(initData);
     }
 
-    public Optional<UUID> runId() {
-        return this.value(KEY_RUN_ID);
+    public UUID runId() {
+        return this.<UUID>value(KEY_RUN_ID)
+                .orElseThrow(() -> new IllegalStateException("runID not set in workflow context"));
     }
 
-    public Optional<UUID> conversationId() {
-        return this.value(KEY_CONVERSATION_ID);
+    public UUID conversationId() {
+        return this.<UUID>value(KEY_CONVERSATION_ID)
+                .orElseThrow(() -> new IllegalStateException("conversationID not set in workflow context"));
     }
 
     public String userMessage() {

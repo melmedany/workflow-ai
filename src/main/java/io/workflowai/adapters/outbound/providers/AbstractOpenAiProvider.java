@@ -6,7 +6,7 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import io.workflowai.domain.exceptions.LlmCallException;
-import io.workflowai.domain.model.LLMRequest;
+import io.workflowai.domain.model.LlmRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +33,7 @@ public abstract class AbstractOpenAiProvider extends AbstractLlmProvider {
     }
 
     @Override
-    public String stream(LLMRequest request, Consumer<String> tokenConsumer) {
+    public String stream(LlmRequest request, Consumer<String> tokenConsumer) {
         String resolvedModel = resolveModel(request.model(), this.defaultModel);
         List<ChatMessage> messages = buildMessages(request);
         StreamingChatModel streaming = resolvedModel.equals(this.defaultModel)
@@ -44,7 +44,7 @@ public abstract class AbstractOpenAiProvider extends AbstractLlmProvider {
     }
 
     @Override
-    public String call(LLMRequest request) {
+    public String call(LlmRequest request) {
         String resolvedModel = resolveModel(request.model(), this.defaultModel);
         List<ChatMessage> messages = buildMessages(request);
         ChatModel chat = resolvedModel.equals(this.defaultModel)

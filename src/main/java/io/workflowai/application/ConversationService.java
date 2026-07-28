@@ -49,7 +49,6 @@ public class ConversationService implements ConversationProvider {
 
     @Override
     public void deleteConversation(UUID agentId, UUID id) {
-        // TODO handle not found conversation
         conversationStorage.delete(agentId, id);
     }
 }

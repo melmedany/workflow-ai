@@ -8,7 +8,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "workflow-ai.stages")
 public record StagesProperties(List<StageProperties> stages) {
 
-    public record StageProperties(StageId stageId, LLMProviderId llmProviderId, String model, double temperature) {
+    public record StageProperties(StageId stageId, LlmProviderId llmProviderId, String model, double temperature) {
     }
 }
 

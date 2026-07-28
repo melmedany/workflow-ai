@@ -8,8 +8,8 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import io.workflowai.domain.exceptions.LlmStreamingException;
-import io.workflowai.domain.model.LLMRequest;
-import io.workflowai.ports.outbound.LLLMProvider;
+import io.workflowai.domain.model.LlmRequest;
+import io.workflowai.ports.outbound.LlmProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +19,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-public abstract class AbstractLlmProvider implements LLLMProvider {
+public abstract class AbstractLlmProvider implements LlmProvider {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractLlmProvider.class);
 
@@ -36,7 +36,7 @@ public abstract class AbstractLlmProvider implements LLLMProvider {
         return requestedModel;
     }
 
-    protected List<ChatMessage> buildMessages(LLMRequest request) {
+    protected List<ChatMessage> buildMessages(LlmRequest request) {
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(SystemMessage.from(systemPromptWithMemory(request)));
         messages.add(UserMessage.from(request.message()));
@@ -63,7 +63,7 @@ public abstract class AbstractLlmProvider implements LLLMProvider {
 
     abstract protected StreamingChatModel buildStreamingModel(String model, double temperature);
 
-    private String systemPromptWithMemory(LLMRequest request) {
+    private String systemPromptWithMemory(LlmRequest request) {
         if (request.memoryContext() == null || request.memoryContext().isBlank()) {
             return request.systemPrompt();
         }

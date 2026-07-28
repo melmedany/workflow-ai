@@ -3,8 +3,8 @@ CREATE TABLE conversations
     id         UUID PRIMARY KEY NOT NULL,
     agent_id   UUID             NOT NULL,
     title      VARCHAR(500)     NOT NULL,
-    created_at TIMESTAMPTZ      NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ      NOT NULL DEFAULT now(),
+    created_at TIMESTAMP        NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP        NOT NULL DEFAULT now(),
     FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE
 );
 
@@ -16,7 +16,7 @@ CREATE TABLE messages
     role            VARCHAR(20)      NOT NULL,
     content         TEXT             NOT NULL,
     add_to_memory   BOOLEAN          NOT NULL DEFAULT true,
-    created_at      TIMESTAMPTZ      NOT NULL DEFAULT now(),
+    created_at      TIMESTAMP        NOT NULL DEFAULT now(),
     FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
     FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE
 );

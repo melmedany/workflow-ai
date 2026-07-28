@@ -6,9 +6,9 @@ import dev.langchain4j.model.anthropic.AnthropicStreamingChatModel;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import io.workflowai.adapters.outbound.providers.AbstractLlmProvider;
-import io.workflowai.application.LLMProviderId;
+import io.workflowai.application.LlmProviderId;
 import io.workflowai.domain.exceptions.LlmCallException;
-import io.workflowai.domain.model.LLMRequest;
+import io.workflowai.domain.model.LlmRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -22,12 +22,6 @@ import java.util.function.Consumer;
 public class AnthropicProvider extends AbstractLlmProvider {
 
     private static final Logger log = LoggerFactory.getLogger(AnthropicProvider.class);
-    // TODO make configurable
-    private static final Set<String> SUPPORTED_MODELS = Set.of(
-            "claude-haiku-4-5", "claude-sonnet-4.6", "claude-sonnet-5",
-            "claude-opus-4.7", "claude-opus-4.8"
-    );
-
     private final AnthropicProperties properties;
 
     public AnthropicProvider(AnthropicProperties properties) {
@@ -38,22 +32,22 @@ public class AnthropicProvider extends AbstractLlmProvider {
     }
 
     @Override
-    public LLMProviderId getId() {
-        return LLMProviderId.Anthropic;
+    public LlmProviderId getId() {
+        return LlmProviderId.Anthropic;
     }
 
     @Override
     public boolean supportsModel(String model) {
-        return model != null && SUPPORTED_MODELS.contains(model);
+        return model != null && properties.supportedModels().contains(model);
     }
 
     @Override
     public Set<String> supportedModels() {
-        return SUPPORTED_MODELS;
+        return properties.supportedModels();
     }
 
     @Override
-    public String stream(LLMRequest request, Consumer<String> tokenConsumer) {
+    public String stream(LlmRequest request, Consumer<String> tokenConsumer) {
         String model = resolveModel(request.model(), properties.defaultModel());
         List<ChatMessage> messages = buildMessages(request);
         StreamingChatModel streaming = model.equals(properties.defaultModel())
@@ -64,7 +58,7 @@ public class AnthropicProvider extends AbstractLlmProvider {
     }
 
     @Override
-    public String call(LLMRequest request) {
+    public String call(LlmRequest request) {
         String model = resolveModel(request.model(), properties.defaultModel());
         List<ChatMessage> messages = buildMessages(request);
         ChatModel chat = model.equals(properties.defaultModel())
@@ -99,7 +93,8 @@ public class AnthropicProvider extends AbstractLlmProvider {
     }
 
     @ConfigurationProperties(prefix = "langchain4j.providers.anthropic")
-    public record AnthropicProperties(String baseUrl, String apiKey, String defaultModel, double defaultTemperature) {
+    public record AnthropicProperties(String baseUrl, String apiKey, String defaultModel,
+                                      double defaultTemperature, Set<String> supportedModels) {
 
         public boolean isConfigured() {
             return isConfigured(baseUrl) && isConfigured(apiKey);

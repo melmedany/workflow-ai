@@ -1,7 +1,7 @@
 package io.workflowai.application.pipeline;
 
 import io.workflowai.application.GuardrailProperties;
-import io.workflowai.application.LLMProviderRegistry;
+import io.workflowai.application.LlmProviderRegistry;
 import io.workflowai.application.StagesProperties;
 import io.workflowai.domain.exceptions.WorkflowBuildException;
 import io.workflowai.domain.model.AgentProperties;
@@ -11,7 +11,7 @@ import io.workflowai.domain.workflow.StageId;
 import io.workflowai.ports.outbound.AgentMemoryStorage;
 import io.workflowai.ports.outbound.MessageStorage;
 import io.workflowai.ports.outbound.NotificationChannel;
-import io.workflowai.ports.outbound.RunHistoryPort;
+import io.workflowai.ports.outbound.PipelineEventStreamer;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncEdgeAction;
@@ -31,20 +31,20 @@ public class WorkflowPipelineFactory {
     private static final Logger log = LoggerFactory.getLogger(WorkflowPipelineFactory.class);
 
     private final StagesProperties stagesProperties;
-    private final LLMProviderRegistry llmProviderRegistry;
+    private final LlmProviderRegistry llmProviderRegistry;
     private final MessageStorage messageStorage;
     private final AgentMemoryStorage agentMemoryStorage;
-    private final RunHistoryPort runHistoryPort;
+    private final List<PipelineEventStreamer> pipelineEventStreamers;
     private final List<NotificationChannel> notificationChannels;
     private final GuardrailChecker guardrailChecker;
     private final JsonMapper jsonMapper;
 
     public WorkflowPipelineFactory(
             StagesProperties stagesProperties,
-            LLMProviderRegistry llmProviderRegistry,
+            LlmProviderRegistry llmProviderRegistry,
             MessageStorage messageStorage,
             AgentMemoryStorage agentMemoryStorage,
-            RunHistoryPort runHistoryPort,
+            List<PipelineEventStreamer> pipelineEventStreamers,
             List<NotificationChannel> notificationChannels,
             GuardrailProperties guardrailProperties,
             JsonMapper jsonMapper) {
@@ -52,7 +52,7 @@ public class WorkflowPipelineFactory {
         this.llmProviderRegistry = llmProviderRegistry;
         this.messageStorage = messageStorage;
         this.agentMemoryStorage = agentMemoryStorage;
-        this.runHistoryPort = runHistoryPort;
+        this.pipelineEventStreamers = pipelineEventStreamers;
         this.notificationChannels = notificationChannels;
         this.guardrailChecker = new GuardrailChecker(guardrailProperties);
         this.jsonMapper = jsonMapper;
@@ -62,9 +62,12 @@ public class WorkflowPipelineFactory {
             WorkflowPipelineId pipelineId,
             AgentProperties agentProperties) {
         log.debug("Building [{}] workflow for agent [{}]", pipelineId, agentProperties.id());
+        llmProviderRegistry.validate(agentProperties.llmProviderId(), agentProperties.model());
+        stagesProperties.stages().forEach(stage ->
+                llmProviderRegistry.validate(stage.llmProviderId(), stage.model()));
         WorkflowPipeline pipeline = new WorkflowPipeline(
                 agentProperties, llmProviderRegistry, stagesProperties,
-                messageStorage, agentMemoryStorage, runHistoryPort,
+                messageStorage, agentMemoryStorage, pipelineEventStreamers,
                 notificationChannels, guardrailChecker, jsonMapper
         );
 

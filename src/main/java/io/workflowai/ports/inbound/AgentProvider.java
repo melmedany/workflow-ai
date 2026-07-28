@@ -12,8 +12,6 @@ public interface AgentProvider {
 
     Agent get(UUID id);
 
-    void reload(UUID id);
-
     void trigger(AgentRequest request, Consumer<PipelineEvent> eventConsumer);
 
     List<Agent> getAll();

@@ -4,7 +4,7 @@ import io.workflowai.domain.model.TriggerSource;
 
 import java.util.UUID;
 
-public interface RunHistoryPort {
+public interface AgentRunTracker {
 
     UUID start(TriggerSource triggerSource, UUID agentId, UUID conversationId);
 

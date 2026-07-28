@@ -1,6 +1,6 @@
 package io.workflowai.domain.model;
 
-public record LLMRequest(
+public record LlmRequest(
         String model,
         double temperature,
         String systemPrompt,

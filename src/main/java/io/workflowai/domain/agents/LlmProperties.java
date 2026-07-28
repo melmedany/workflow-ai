@@ -1,9 +1,9 @@
 package io.workflowai.domain.agents;
 
-import io.workflowai.application.LLMProviderId;
+import io.workflowai.application.LlmProviderId;
 
 public record LlmProperties(
-        LLMProviderId providerId,
+        LlmProviderId providerId,
         String model,
         String agentPrompt,
         double temperature,

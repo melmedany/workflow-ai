@@ -83,12 +83,6 @@ public class AgentController {
         return ResponseEntity.ok(toAgentInfo(agentService.get(agentId)));
     }
 
-    @GetMapping("/{agentId}/reload")
-    public ResponseEntity<Void> reloadAgent(@PathVariable UUID agentId) {
-        agentService.reload(agentId);
-        return ResponseEntity.ok().build();
-    }
-
     @GetMapping("/{agentId}/conversations")
     public ResponseEntity<List<ConversationResponse>> getConversations(@PathVariable UUID agentId) {
         List<ConversationResponse> conversations = conversationService.getConversationsForAgent(agentId).stream()
@@ -99,29 +93,30 @@ public class AgentController {
 
     @DeleteMapping("/{agentId}/conversations/{conversationId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteConversation(@PathVariable UUID agentId, @PathVariable UUID conversationId) {
+    public ResponseEntity<Void> deleteConversation(@PathVariable UUID agentId, @PathVariable UUID conversationId) {
         conversationService.deleteConversation(agentId, conversationId);
         log.debug("Conversation [{}] deleted", conversationId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{agentId}/conversations/{conversationId}/messages")
-    public List<MessageResponse> getMessages(@PathVariable UUID agentId, @PathVariable UUID conversationId) {
-        return conversationService.getMessages(agentId, conversationId).stream()
+    public ResponseEntity<List<MessageResponse>> getMessages(@PathVariable UUID agentId, @PathVariable UUID conversationId) {
+        return ResponseEntity.ok(conversationService.getMessages(agentId, conversationId).stream()
                 .map(Mappers::toMessageResponse)
-                .toList();
+                .toList());
     }
 
     @PostMapping(value = "/{agentId}/conversations/{convId}/chat", produces = TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter chat(@PathVariable UUID agentId, @PathVariable String convId, @RequestBody ChatRequest request) {
+    public ResponseEntity<SseEmitter> chat(@PathVariable UUID agentId, @PathVariable String convId, @RequestBody ChatRequest request) {
         boolean newConversation = "NEW_CONVERSATION".equalsIgnoreCase(convId);
         UUID conversationId = resolveConversationId(convId, agentId, request);
         ConversationResponse conversation = toConversationResponse(conversationService.getConversation(agentId, conversationId));
 
         SseEmitter emitter = new SseEmitter(300_000L);
         emitter.onTimeout(emitter::complete);
-        emitter.onError(e -> {
-            log.warn("SSE connection error for conversation [{}]: {}", conversationId, e.getMessage());
-            emitter.complete();
+        emitter.onError(ex -> {
+            log.warn("SSE connection error for conversation [{}]: {}", conversationId, ex.getMessage());
+            emitter.completeWithError(ex);
         });
 
         Thread.startVirtualThread(() -> {
@@ -142,7 +137,7 @@ public class AgentController {
             }
         });
 
-        return emitter;
+        return ResponseEntity.ok(emitter);
     }
 
     private UUID resolveConversationId(String conversationId, UUID agentId, ChatRequest request) {
@@ -200,12 +195,6 @@ public class AgentController {
     }
 
     private void sendError(SseEmitter emitter, String message) {
-        try {
-            emitter.send(SseEmitter.event().name("error")
-                    .data("{\"message\":\"" + message + "\"}", APPLICATION_JSON));
-        } catch (IOException ex) {
-            log.warn("Failed to send error, emitter may already be closed", ex);
-            //
-        }
+        sendJson(emitter, ERROR, new ErrorPayload(message));
     }
 }

@@ -17,7 +17,7 @@ async function initAdmin() {
                 .sort((a, b) => a[0].localeCompare(b[0]))
                 .map(([key, arrayValue]) => [key, [...arrayValue].sort((a, b) => a.localeCompare(b))])
         );
-        renderLLMProviders();
+        renderLlmProviders();
         await loadAdminAgents();
 
         if (agents.length > 0) {
@@ -96,7 +96,7 @@ function toggleResponseContractFields(format) {
 
 function resetForm() {
     document.getElementById('agent-form').reset();
-    renderLLMProviders();
+    renderLlmProviders();
     renderModelOptions();
     document.getElementById('temperature').value = 0.7;
     document.getElementById('fallback-failed-to-process').value = "I couldn't process that safely right now. Please try again.";
@@ -169,7 +169,7 @@ function addToolbar(container, pz) {
     if (window.lucide) lucide.createIcons();
 }
 
-function renderLLMProviders() {
+function renderLlmProviders() {
     const select = document.getElementById('llm-provider');
     select.innerHTML = Object.keys(llmProviders)
         .map(option => {
@@ -242,7 +242,6 @@ async function saveAgent(e) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(agent),
     });
-    await fetch(`/api/agents/${agent.agentId}/reload`);
     await loadAdminAgents();
     const diagram = await fetchAgentDiagram(agent.agentId);
     fillForm(agent, diagram);

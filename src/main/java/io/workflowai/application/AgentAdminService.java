@@ -14,16 +14,16 @@ import java.util.UUID;
 @Component
 public class AgentAdminService implements AgentAdminManager {
     private final AgentDefinitionStorage storagePort;
-    private final LLMProviderRegistry llmProviderRegistry;
+    private final LlmProviderRegistry llmProviderRegistry;
 
-    public AgentAdminService(AgentDefinitionStorage storagePort, LLMProviderRegistry llmProviderRegistry) {
+    public AgentAdminService(AgentDefinitionStorage storagePort, LlmProviderRegistry llmProviderRegistry) {
         this.storagePort = storagePort;
         this.llmProviderRegistry = llmProviderRegistry;
     }
 
     @Override
-    public Map<LLMProviderId, Set<String>> supportedLLMProviders() {
-        return llmProviderRegistry.supportedLLMProvider();
+    public Map<LlmProviderId, Set<String>> supportedLlmProviders() {
+        return llmProviderRegistry.supportedLlmProvider();
     }
 
     @Override
@@ -38,12 +38,18 @@ public class AgentAdminService implements AgentAdminManager {
 
     @Override
     public AgentDefinition saveDefinition(AgentDefinition definition) {
+        validate(definition);
         return storagePort.save(definition);
     }
 
     @Override
     public AgentDefinition updateDefinition(AgentDefinition definition) {
+        validate(definition);
         return storagePort.update(definition);
+    }
+
+    private void validate(AgentDefinition definition) {
+        llmProviderRegistry.validate(definition.llmProperties().providerId(), definition.llmProperties().model());
     }
 
     @Override

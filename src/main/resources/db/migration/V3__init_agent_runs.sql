@@ -4,8 +4,8 @@ CREATE TABLE agent_runs
     agent_id        UUID             NOT NULL,
     conversation_id UUID,
     trigger_source  VARCHAR(30)      NOT NULL,
-    started_at      TIMESTAMPTZ      NOT NULL DEFAULT now(),
-    completed_at    TIMESTAMPTZ,
+    started_at      TIMESTAMP        NOT NULL DEFAULT now(),
+    completed_at    TIMESTAMP,
     status          VARCHAR(20)      NOT NULL,
     error_message   TEXT
 --  Foreign keys for agent_id and conversation_id was not added deliberately to avoid agent runs deletion on agent or conversation deletion

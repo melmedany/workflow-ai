@@ -2,22 +2,32 @@ package io.workflowai.integration;
 
 import io.restassured.http.ContentType;
 import io.workflowai.adapters.inbound.rest.dto.ConversationResponse;
+import io.workflowai.adapters.inbound.rest.dto.EventType;
+import io.workflowai.application.LlmProviderId;
+import io.workflowai.application.LlmProviderRegistry;
 import io.workflowai.domain.model.ConversationMessage;
 import io.workflowai.domain.model.ConversationMessageRole;
+import io.workflowai.domain.model.LlmRequest;
+import io.workflowai.ports.outbound.LlmProvider;
 import io.workflowai.ports.outbound.MessageStorage;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.jdbc.Sql;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 @Sql
 class ChatEndpointTest extends IntegrationBase {
@@ -30,6 +40,43 @@ class ChatEndpointTest extends IntegrationBase {
 
     @Autowired
     private MessageStorage messageStorage;
+
+    @MockitoBean
+    private LlmProviderRegistry llmProviderRegistry;
+
+    @BeforeEach
+    void mockOllamaProvider() {
+        LlmProvider ollama = new LlmProvider() {
+            @Override
+            public LlmProviderId getId() {
+                return LlmProviderId.Ollama;
+            }
+
+            @Override
+            public String stream(LlmRequest request, Consumer<String> tokenConsumer) {
+                String response = "Test response";
+                tokenConsumer.accept(response);
+                return response;
+            }
+
+            @Override
+            public String call(LlmRequest request) {
+                return "{\"decisionMode\":\"GREET\",\"detectedTopics\":[],\"extractedIntent\":\"Hello\",\"clarificationQuestion\":null,\"reason\":\"Greeting\"}";
+            }
+
+            @Override
+            public boolean supportsModel(String model) {
+                return true;
+            }
+
+            @Override
+            public java.util.Set<String> supportedModels() {
+                return java.util.Set.of();
+            }
+        };
+        when(llmProviderRegistry.get(any())).thenReturn(ollama);
+        when(llmProviderRegistry.supportedLlmProvider()).thenReturn(java.util.Map.of(LlmProviderId.Ollama, java.util.Set.of()));
+    }
 
     @Test
     void chat_persistsExactlyOneUserAndOneAgentMessagePerTurn() {
@@ -76,7 +123,7 @@ class ChatEndpointTest extends IntegrationBase {
     }
 
     @Test
-    void deleteNonExistentConversation_returns404() {
+    void deleteNonExistentConversation_isIdempotent() {
         given()
                 .when()
                 .delete("/api/agents/{agentId}/conversations/{conversationId}", AGENT_ID, UUID.randomUUID())
@@ -105,15 +152,15 @@ class ChatEndpointTest extends IntegrationBase {
                 .extract()
                 .asString();
 
-        return jsonMapper.readValue(extractEventData("conversation_created", rawStream), ConversationResponse.class);
+        return jsonMapper.readValue(extractEventData(EventType.CONVERSATION_CREATED, rawStream), ConversationResponse.class);
     }
 
-    private String extractEventData(String eventName, String rawStream) {
+    private String extractEventData(EventType eventType, String rawStream) {
         List<String> lines = Arrays.stream(rawStream.split("\\r?\\n"))
                 .map(String::trim)
                 .toList();
 
-        String targetEventLine = "event:" + eventName;
+        String targetEventLine = "event:%s".formatted(eventType);
 
         for (int i = 0; i < lines.size(); i++) {
             if (lines.get(i).equals(targetEventLine)) {
@@ -123,6 +170,6 @@ class ChatEndpointTest extends IntegrationBase {
             }
         }
 
-        throw new AssertionError("Event '" + eventName + "' with valid data block was not found in the stream.");
+        throw new AssertionError("Event '%s' with valid data block was not found in the stream.".formatted(eventType));
     }
 }
