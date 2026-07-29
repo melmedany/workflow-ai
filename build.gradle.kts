@@ -8,7 +8,7 @@ group = "io.github.melmedany"
 version = "1.0"
 
 springBoot {
-    mainClass = "io.workflowai.WorkflowAIApplication"
+    mainClass = "io.workflowai.bootstrap.WorkflowAIApplication"
 }
 
 java {

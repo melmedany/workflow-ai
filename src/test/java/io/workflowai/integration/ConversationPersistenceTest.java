@@ -1,10 +1,10 @@
 package io.workflowai.integration;
 
-import io.workflowai.domain.model.Conversation;
-import io.workflowai.domain.model.ConversationMessage;
-import io.workflowai.domain.model.ConversationMessageRole;
-import io.workflowai.ports.outbound.ConversationStorage;
-import io.workflowai.ports.outbound.MessageStorage;
+import io.workflowai.domain.conversation.Conversation;
+import io.workflowai.domain.conversation.ConversationMessage;
+import io.workflowai.domain.conversation.ConversationMessageRole;
+import io.workflowai.application.port.out.ConversationStorage;
+import io.workflowai.application.port.out.ConversationMessageStorage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
@@ -26,7 +26,7 @@ class ConversationPersistenceTest extends IntegrationBase {
     ConversationStorage conversationStorage;
 
     @Autowired
-    MessageStorage messageStorage;
+    ConversationMessageStorage conversationMessageStorage;
 
     @Test
     void createAndRetrieveConversation() {
@@ -57,12 +57,12 @@ class ConversationPersistenceTest extends IntegrationBase {
     void saveAndRetrieveMessages() {
         Conversation conversation = conversationStorage.create(AGENT_ID_1, "Message test");
 
-        messageStorage.save(conversation.id(), AGENT_ID_1,
+        conversationMessageStorage.save(conversation.id(), AGENT_ID_1,
                 new ConversationMessage(ConversationMessageRole.USER, "Hello", true));
-        messageStorage.save(conversation.id(), AGENT_ID_1,
+        conversationMessageStorage.save(conversation.id(), AGENT_ID_1,
                 new ConversationMessage(ConversationMessageRole.AGENT, "Hi there", true));
 
-        List<ConversationMessage> messages = messageStorage.findByAgentIdAndConversationId(conversation.agentId(), conversation.id());
+        List<ConversationMessage> messages = conversationMessageStorage.findByAgentIdAndConversationId(conversation.agentId(), conversation.id());
 
         assertThat(messages).hasSize(2);
         assertThat(messages.get(0).role()).isEqualTo(ConversationMessageRole.USER);
@@ -75,19 +75,19 @@ class ConversationPersistenceTest extends IntegrationBase {
         Conversation conversation1 = conversationStorage.create(AGENT_ID_1, "Conversation 1");
         Conversation conversation2 = conversationStorage.create(AGENT_ID_2, "Conversation 2");
 
-        messageStorage.save(conversation1.id(), AGENT_ID_1,
+        conversationMessageStorage.save(conversation1.id(), AGENT_ID_1,
                 new ConversationMessage(ConversationMessageRole.USER, "Conversation1 message", true));
-        messageStorage.save(conversation2.id(), AGENT_ID_2,
+        conversationMessageStorage.save(conversation2.id(), AGENT_ID_2,
                 new ConversationMessage(ConversationMessageRole.USER, "Conversation2 message", true));
 
-        assertThat(messageStorage.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id()))
+        assertThat(conversationMessageStorage.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id()))
                 .hasSize(1);
-        assertThat(messageStorage.findByAgentIdAndConversationId(conversation2.agentId(), conversation2.id()))
+        assertThat(conversationMessageStorage.findByAgentIdAndConversationId(conversation2.agentId(), conversation2.id()))
                 .hasSize(1);
-        assertThat(messageStorage.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id())
+        assertThat(conversationMessageStorage.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id())
                 .getFirst().content())
                 .isEqualTo("Conversation1 message");
-        assertThat(messageStorage.findByAgentIdAndConversationId(conversation2.agentId(), conversation2.id())
+        assertThat(conversationMessageStorage.findByAgentIdAndConversationId(conversation2.agentId(), conversation2.id())
                 .getFirst().content())
                 .isEqualTo("Conversation2 message");
     }

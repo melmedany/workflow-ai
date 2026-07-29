@@ -1,15 +1,15 @@
 package io.workflowai.integration;
 
 import io.restassured.http.ContentType;
-import io.workflowai.adapters.inbound.rest.dto.ConversationResponse;
-import io.workflowai.adapters.inbound.rest.dto.EventType;
-import io.workflowai.application.LlmProviderId;
-import io.workflowai.application.LlmProviderRegistry;
-import io.workflowai.domain.model.ConversationMessage;
-import io.workflowai.domain.model.ConversationMessageRole;
-import io.workflowai.domain.model.LlmRequest;
-import io.workflowai.ports.outbound.LlmProvider;
-import io.workflowai.ports.outbound.MessageStorage;
+import io.workflowai.adapter.in.rest.dto.ConversationResponse;
+import io.workflowai.adapter.in.rest.dto.EventType;
+import io.workflowai.application.execution.ChatProviderRegistry;
+import io.workflowai.domain.agent.ChatProviderId;
+import io.workflowai.domain.conversation.ConversationMessage;
+import io.workflowai.domain.conversation.ConversationMessageRole;
+import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.port.out.ChatProvider;
+import io.workflowai.application.port.out.ConversationMessageStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,28 +40,28 @@ class ChatEndpointTest extends IntegrationBase {
     private JsonMapper jsonMapper;
 
     @Autowired
-    private MessageStorage messageStorage;
+    private ConversationMessageStorage conversationMessageStorage;
 
     @MockitoBean
-    private LlmProviderRegistry llmProviderRegistry;
+    private ChatProviderRegistry chatProviderRegistry;
 
     @BeforeEach
     void mockOllamaProvider() {
-        LlmProvider ollama = new LlmProvider() {
+        ChatProvider ollama = new ChatProvider() {
             @Override
-            public LlmProviderId getId() {
-                return LlmProviderId.Ollama;
+            public ChatProviderId getId() {
+                return ChatProviderId.Ollama;
             }
 
             @Override
-            public String stream(LlmRequest request, Consumer<String> tokenConsumer) {
+            public String stream(ChatRequest request, Consumer<String> tokenConsumer) {
                 String response = "Test response";
                 tokenConsumer.accept(response);
                 return response;
             }
 
             @Override
-            public String call(LlmRequest request) {
+            public String call(ChatRequest request) {
                 return "{\"decisionMode\":\"GREET\",\"detectedTopics\":[],\"extractedIntent\":\"Hello\",\"clarificationQuestion\":null,\"reason\":\"Greeting\"}";
             }
 
@@ -74,8 +75,8 @@ class ChatEndpointTest extends IntegrationBase {
                 return java.util.Set.of();
             }
         };
-        when(llmProviderRegistry.get(any())).thenReturn(ollama);
-        when(llmProviderRegistry.supportedLlmProvider()).thenReturn(java.util.Map.of(LlmProviderId.Ollama, java.util.Set.of()));
+        when(chatProviderRegistry.get(any())).thenReturn(ollama);
+        when(chatProviderRegistry.supportedChatProviders()).thenReturn(java.util.Map.of(ChatProviderId.Ollama, java.util.Set.of()));
     }
 
     @Test
@@ -83,7 +84,7 @@ class ChatEndpointTest extends IntegrationBase {
         ConversationResponse conversation = newConversation(AGENT_ID);
 
         List<ConversationMessage> messages =
-                messageStorage.findByAgentIdAndConversationId(conversation.agentId(), conversation.id());
+                conversationMessageStorage.findByAgentIdAndConversationId(conversation.agentId(), conversation.id());
 
         long userMessages = messages.stream().filter(m -> m.role() == ConversationMessageRole.USER).count();
         long agentMessages = messages.stream().filter(m -> m.role() == ConversationMessageRole.AGENT).count();
@@ -100,6 +101,16 @@ class ChatEndpointTest extends IntegrationBase {
                 .then()
                 .statusCode(200)
                 .body("$", not(empty()));
+    }
+
+    @Test
+    void getWorkflowDiagram_rendersMermaidDiagram() {
+        given()
+                .when()
+                .get("/api/admin/agents/{agentId}/workflowDiagram", AGENT_ID)
+                .then()
+                .statusCode(200)
+                .body(containsString("flowchart"));
     }
 
     @Test

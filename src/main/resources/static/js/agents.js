@@ -1,6 +1,6 @@
 const ADMIN_API = '/api/admin/agents';
 let agents = [];
-let llmProviders = [];
+let chatProviders = [];
 
 async function adminFetch(path, options) {
     const res = await fetch(`${ADMIN_API}/${path}`, options);
@@ -11,13 +11,13 @@ async function adminFetch(path, options) {
 
 async function initAdmin() {
     try {
-        const response = await adminFetch('supported-llm-providers');
-        llmProviders = Object.fromEntries(
+        const response = await adminFetch('supported-chat-providers');
+        chatProviders = Object.fromEntries(
             Object.entries(response)
                 .sort((a, b) => a[0].localeCompare(b[0]))
                 .map(([key, arrayValue]) => [key, [...arrayValue].sort((a, b) => a.localeCompare(b))])
         );
-        renderLlmProviders();
+        renderChatProviders();
         await loadAdminAgents();
 
         if (agents.length > 0) {
@@ -45,7 +45,7 @@ async function loadAdminAgents() {
         const item = document.createElement('div');
         item.className = `admin-agent-item ${agent.agentId === agents[0].agentId ? 'active' : ''}`;
         item.innerHTML = '<strong>' + escapeHtml(agent.details.displayName) + '</strong>'
-            + llmBadgeHtml(agent.llmProperties?.providerId, agent.llmProperties?.model);
+            + chatBadgeHtml(agent.chatProperties?.providerId, agent.chatProperties?.model);
         item.onclick = async () => {
             list.querySelectorAll('.active').forEach(i => i.classList.remove('active'));
             const diagram = await fetchAgentDiagram(agent.agentId);
@@ -69,11 +69,11 @@ function fillForm(agent, agentWorkflowDiagram) {
     document.getElementById('agent-enabled').checked = agent.details.enabled;
     document.getElementById('display-name').value = agent.details.displayName || '';
     document.getElementById('description').value = agent.details.description || '';
-    document.getElementById('llm-provider').value = agent.llmProperties.providerId || llmProviders[0]?.providerId || '';
-    renderModelOptions(agent.llmProperties.model || '');
-    document.getElementById('temperature').value = agent.llmProperties.temperature ?? 0.7;
-    document.getElementById('memory-enabled').checked = !!agent.llmProperties.memoryEnabled;
-    document.getElementById('agent-prompt').value = (agent.llmProperties.agentPrompt);
+    document.getElementById('chat-provider').value = agent.chatProperties.providerId || chatProviders[0]?.providerId || '';
+    renderModelOptions(agent.chatProperties.model || '');
+    document.getElementById('temperature').value = agent.chatProperties.temperature ?? 0.7;
+    document.getElementById('memory-enabled').checked = !!agent.chatProperties.memoryEnabled;
+    document.getElementById('agent-prompt').value = (agent.chatProperties.agentPrompt);
     document.getElementById('supported-capabilities').value = (agent.workflowPolicyProperties.supportedCapabilities || []).join('\n');
     document.getElementById('fallback-failed-to-process').value = agent.workflowPolicyProperties.fallbackFailedToProcess || '';
     fillResponseContract(agent.workflowPolicyProperties.responseContract);
@@ -96,7 +96,7 @@ function toggleResponseContractFields(format) {
 
 function resetForm() {
     document.getElementById('agent-form').reset();
-    renderLlmProviders();
+    renderChatProviders();
     renderModelOptions();
     document.getElementById('temperature').value = 0.7;
     document.getElementById('fallback-failed-to-process').value = "I couldn't process that safely right now. Please try again.";
@@ -169,9 +169,9 @@ function addToolbar(container, pz) {
     if (window.lucide) lucide.createIcons();
 }
 
-function renderLlmProviders() {
-    const select = document.getElementById('llm-provider');
-    select.innerHTML = Object.keys(llmProviders)
+function renderChatProviders() {
+    const select = document.getElementById('chat-provider');
+    select.innerHTML = Object.keys(chatProviders)
         .map(option => {
             const val = typeof option === 'string' ? option : option.providerId;
             return '<option value="' + escapeHtml(val) + '">' + escapeHtml(val) + '</option>';
@@ -180,8 +180,8 @@ function renderLlmProviders() {
 }
 
 function renderModelOptions(selectedModel) {
-    const llmProvider = document.getElementById('llm-provider').value || llmProviders[0]?.providerId || '';
-    const models = llmProviders[llmProvider] || [];
+    const chatProvider = document.getElementById('chat-provider').value || chatProviders[0]?.providerId || '';
+    const models = chatProviders[chatProvider] || [];
     const select = document.getElementById('model');
     select.innerHTML = models
         .map(model => '<option value="' + escapeHtml(model) + '">' + escapeHtml(model) + '</option>')
@@ -209,8 +209,8 @@ function readForm() {
             displayName: document.getElementById('display-name').value.trim(),
             description: document.getElementById('description').value.trim(),
         },
-        llmProperties: {
-            providerId: document.getElementById('llm-provider').value.trim(),
+        chatProperties: {
+            providerId: document.getElementById('chat-provider').value.trim(),
             model: document.getElementById('model').value.trim(),
             agentPrompt: document.getElementById('agent-prompt').value.trim(),
             temperature: Number(document.getElementById('temperature').value),
@@ -275,7 +275,7 @@ function escapeHtml(text) {
 document.addEventListener('DOMContentLoaded', () => {
     if (window.lucide) lucide.createIcons();
     document.getElementById('agent-form').addEventListener('submit', saveAgent);
-    document.getElementById('llm-provider').addEventListener('change', () => renderModelOptions());
+    document.getElementById('chat-provider').addEventListener('change', () => renderModelOptions());
     document.getElementById('response-format').addEventListener('change', (e) => toggleResponseContractFields(e.target.value));
     document.getElementById('delete-agent-btn').addEventListener('click', deleteAgent);
     document.getElementById('new-agent-btn').addEventListener('click', resetForm);

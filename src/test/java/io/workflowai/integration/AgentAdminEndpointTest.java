@@ -24,7 +24,7 @@ class AgentAdminEndpointTest extends IntegrationBase {
                             "description": "test agent",
                             "enabled": true
                           },
-                          "llmProperties": {
+                          "chatProperties": {
                             "providerId": "Ollama",
                             "model": "deepseek-r1:8b",
                             "temperature": 0.4,
@@ -57,7 +57,7 @@ class AgentAdminEndpointTest extends IntegrationBase {
                             "description": "test agent",
                             "enabled": true
                           },
-                          "llmProperties": {
+                          "chatProperties": {
                             "providerId": "Ollama",
                             "model": "deepseek-r1:8b",
                             "temperature": 0.4,

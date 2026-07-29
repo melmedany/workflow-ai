@@ -29,8 +29,8 @@ async function init() {
         document.getElementById('agent-desc').textContent = agent.description || '';
         document.getElementById('agent-avatar').textContent = name.charAt(0);
 
-        const badge = document.getElementById('agent-llm-badge');
-        const badgeLabel = llmBadgeLabel(agent.llmProviderId, agent.model);
+        const badge = document.getElementById('agent-chat-badge');
+        const badgeLabel = chatBadgeLabel(agent.chatProviderId, agent.model);
         if (badgeLabel) {
             badge.textContent = badgeLabel;
             badge.title = badgeLabel;

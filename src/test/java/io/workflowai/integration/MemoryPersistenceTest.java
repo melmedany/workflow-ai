@@ -1,7 +1,7 @@
 package io.workflowai.integration;
 
-import io.workflowai.ports.outbound.AgentMemoryStorage;
-import io.workflowai.ports.outbound.ConversationStorage;
+import io.workflowai.application.port.out.AgentMemoryStorage;
+import io.workflowai.application.port.out.ConversationStorage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;

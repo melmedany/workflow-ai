@@ -14,53 +14,24 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 class ArchitectureTest {
 
   @ArchTest
+  ArchRule domainMustNotDependOnApplication =
+      noClasses()
+          .that()
+          .resideInAPackage("..domain..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("..application..")
+          .because("domain must not depend outward on the application layer");
+
+  @ArchTest
   ArchRule domainMustNotDependOnAdapters =
       noClasses()
           .that()
           .resideInAPackage("..domain..")
           .should()
           .dependOnClassesThat()
-          .resideInAnyPackage("..adapters..");
-
-  @ArchTest
-  ArchRule domainMustNotDependOnPersistence =
-      noClasses()
-          .that()
-          .resideInAPackage("..domain..")
-          .should()
-          .dependOnClassesThat()
-          .resideInAnyPackage("..adapters.persistence..");
-
-  @ArchTest
-  ArchRule applicationMustNotDependOnInfrastructure =
-      noClasses()
-          .that()
-          .resideInAPackage("..application..")
-          .should()
-          .dependOnClassesThat()
-          .resideInAnyPackage("..adapters.persistence..");
-
-  @ArchTest
-  ArchRule applicationMustNotDependOnWebAdapters =
-      noClasses()
-          .that()
-          .resideInAPackage("..application..")
-          .should()
-          .dependOnClassesThat()
-          .resideInAnyPackage("..adapters.rest..");
-
-  @ArchTest
-  ArchRule adaptersShouldNotDependOnEachOther =
-      slices().matching("..adapters.(*)..").should().notDependOnEachOther();
-
-  @ArchTest
-  ArchRule portsMustNotDependOnAdapters =
-      noClasses()
-          .that()
-          .resideInAPackage("..ports..")
-          .should()
-          .dependOnClassesThat()
-          .resideInAnyPackage("..adapters..");
+          .resideInAnyPackage("..adapter..")
+          .because("domain must not depend on infrastructure adapters");
 
   @ArchTest
   ArchRule domainMustNotDependOnSpring =
@@ -92,6 +63,25 @@ class ArchitectureTest {
           .resideInAnyPackage("org.bsc.langgraph4j..")
           .because("AI frameworks belong in adapters only");
 
+  @ArchTest
+  ArchRule applicationMustNotDependOnAdapters =
+      noClasses()
+          .that()
+          .resideInAPackage("..application..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("..adapter..")
+          .because("application must depend on ports, not adapter implementations");
+
+  @ArchTest
+  ArchRule applicationPortsMustNotDependOnAdapters =
+      noClasses()
+          .that()
+          .resideInAPackage("..application.port..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("..adapter..")
+          .because("ports are application-owned contracts");
 
   @ArchTest
   ArchRule applicationMustNotDependOnLangChain4j =
@@ -101,16 +91,41 @@ class ArchitectureTest {
           .should()
           .dependOnClassesThat()
           .resideInAnyPackage("dev.langchain4j..")
-          .because("application layer should not depend on AI infrastructure");
+          .because("application should not depend on AI infrastructure");
 
-// TODO: make application not dependable on langgraph4j
-//  @ArchTest()
-//  ArchRule applicationMustNotDependOnLangGraph4j =
-//      noClasses()
-//          .that()
-//          .resideInAPackage("..application..")
-//          .should()
-//          .dependOnClassesThat()
-//          .resideInAnyPackage("org.bsc.langgraph4j..")
-//          .because("application layer should not depend on AI infrastructure");
+  @ArchTest
+  ArchRule applicationMustNotDependOnLangGraph4j =
+      noClasses()
+          .that()
+          .resideInAPackage("..application..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("org.bsc.langgraph4j..")
+          .because("application should not depend on graph infrastructure");
+
+  @ArchTest
+  ArchRule onlyLangChain4jAdapterMayDependOnLangChain4j =
+      noClasses()
+          .that()
+          .resideOutsideOfPackage("..adapter.out.chat..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("dev.langchain4j..")
+          .because("only the chat adapters may use LangChain4j");
+
+  @ArchTest
+  ArchRule onlyRuntimeAdapterMayDependOnLangGraph4j =
+      noClasses()
+          .that()
+          .resideOutsideOfPackage("..adapter.out.runtime.graph..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("org.bsc.langgraph4j..")
+          .because("only the graph runtime adapter may use LangGraph4j");
+
+  @ArchTest
+  ArchRule adapterInAndOutMustNotDependOnEachOther =
+      slices().matching("..adapter.(*)..")
+          .should()
+          .notDependOnEachOther();
 }

@@ -78,30 +78,30 @@ workflow-ai:
   stages:
     stages:
       - stage-id: CLASSIFICATION
-        llm-provider-id: Ollama
+        chat-provider-id: Ollama
         model: llama3.2:3b
         temperature: 0.2
       - stage-id: GENERATE_CLARIFICATION
-        llm-provider-id: Ollama
+        chat-provider-id: Ollama
         model: llama3.2:3b
         temperature: 0.2
       - stage-id: GENERATE_REDIRECT
-        llm-provider-id: Ollama
+        chat-provider-id: Ollama
         model: llama3.2:3b
         temperature: 0.2
       - stage-id: GENERATE_GREETING
-        llm-provider-id: Ollama
+        chat-provider-id: Ollama
         model: llama3.2:3b
         temperature: 0.2
       - stage-id: GENERATE_REFUSAL
-        llm-provider-id: Ollama
+        chat-provider-id: Ollama
         model: llama3.2:3b
         temperature: 0.2
       - stage-id: COMPACT_MEMORY
-        llm-provider-id: Ollama
+        chat-provider-id: Ollama
         model: llama3.2:3b
         temperature: 0.2
-  guardrails:
+  guardrail:
     input-blocked-terms:
       - "ignore previous instructions"
       - "ignore all previous instructions"

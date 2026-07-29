@@ -32,7 +32,7 @@
             <form id="agent-form" class="admin-form">
                 <div class="admin-form-intro">
                     <h2>Agent properties</h2>
-                    <p>Choose an agent, select one of the supported LLM providers and models, then enter the agent contract.</p>
+                    <p>Choose an agent, select one of the supported Chat providers and models, then enter the agent contract.</p>
                 </div>
                 <div class="checkbox-row">
                     <label><input id="agent-enabled" type="checkbox"> Agent enabled</label>
@@ -48,9 +48,9 @@
                     <input id="description" type="text" required>
                 </label>
                 <div class="form-grid">
-                    <label>LLM Providers
-                        <select id="llm-provider" required></select>
-                        <span class="field-help">System-supported LLM provider for this agent.</span>
+                    <label>Chat Providers
+                        <select id="chat-provider" required></select>
+                        <span class="field-help">System-supported chat provider for this agent.</span>
                     </label>
                     <label>Models
                         <select id="model" required></select>

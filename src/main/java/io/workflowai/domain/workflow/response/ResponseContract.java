@@ -1,11 +1,12 @@
 package io.workflowai.domain.workflow.response;
 
+import java.io.Serializable;
 import java.util.List;
 
 public record ResponseContract(
         ResponseFormat format,
         List<String> requiredFields,
-        int minLength) {
+        int minLength) implements Serializable {
 
     public ResponseContract {
         if (format == null) {

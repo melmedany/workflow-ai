@@ -2,6 +2,7 @@ package io.workflowai.integration;
 
 import io.restassured.RestAssured;
 import io.restassured.parsing.Parser;
+import io.workflowai.bootstrap.WorkflowAIApplication;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -11,7 +12,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = WorkflowAIApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class IntegrationBase {
 
     @LocalServerPort

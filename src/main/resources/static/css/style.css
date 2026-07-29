@@ -283,7 +283,7 @@ body:not(.chat-page) .top-nav {
     margin-bottom: 3px;
 }
 
-.agent-header-info .llm-badge {
+.agent-header-info .chat-badge {
     display: block;
     width: fit-content;
     max-width: 100%;
@@ -874,7 +874,7 @@ textarea::placeholder {
     display: none!important;
 }
 
-.llm-badge {
+.chat-badge {
     display: inline-block;
     padding: 2px 8px;
     border-radius: var(--radius-md);
@@ -944,7 +944,7 @@ textarea::placeholder {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 1320px;
+    min-height: 1000px;
     overflow: hidden;
     cursor: grab;
 }

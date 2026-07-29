@@ -24,15 +24,15 @@ const toggleTheme = function() {
 applyTheme(localStorage.getItem('theme') || 'dark');
 document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
 
-// ── LLM badge (provider/model chip shown next to an agent's name) ──────────
+// ── Chat badge (provider/model chip shown next to an agent's name) ──────────
 
-function llmBadgeLabel(provider, model) {
+function chatBadgeLabel(provider, model) {
     if (!provider) return '';
     return model ? provider + ' · ' + model : provider;
 }
 
-function llmBadgeHtml(provider, model) {
-    const label = llmBadgeLabel(provider, model);
+function chatBadgeHtml(provider, model) {
+    const label = chatBadgeLabel(provider, model);
     if (!label) return '';
-    return '<span class="llm-badge" title="' + label + '">' + label + '</span>';
+    return '<span class="chat-badge" title="' + label + '">' + label + '</span>';
 }

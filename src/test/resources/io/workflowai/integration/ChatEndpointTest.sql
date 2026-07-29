@@ -1,6 +1,6 @@
 TRUNCATE agents CASCADE;
 
-INSERT INTO agents (id, details, llm_properties, workflow_policy_properties)
+INSERT INTO agents (id, details, chat_properties, workflow_policy_properties)
 VALUES ('1a907243-9428-41e3-a3d1-2c25ffd2a14f',
         '{
           "displayName": "Integration Test Agent",

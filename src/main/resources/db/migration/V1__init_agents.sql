@@ -2,13 +2,13 @@ CREATE TABLE agents
 (
     id                         UUID PRIMARY KEY NOT NULL,
     details                    JSONB            NOT NULL,
-    llm_properties             JSONB            NOT NULL,
+    chat_properties             JSONB            NOT NULL,
     workflow_policy_properties JSONB            NOT NULL,
     created_at                 TIMESTAMP        NOT NULL DEFAULT now(),
     updated_at                 TIMESTAMP        NOT NULL DEFAULT now()
 );
 
-INSERT INTO agents (id, details, llm_properties, workflow_policy_properties)
+INSERT INTO agents (id, details, chat_properties, workflow_policy_properties)
 VALUES ('2166314d-6e6d-4306-b8cf-c9a53fe70b68',
         '{
           "displayName": "Roast",
