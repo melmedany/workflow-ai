@@ -10,7 +10,7 @@ import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
 import io.workflowai.adapter.out.chat.provider.AbstractChatProvider;
 import io.workflowai.domain.exceptions.ChatProviderCallException;
 import io.workflowai.domain.agent.ChatProviderId;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -61,7 +61,7 @@ public class OllamaProvider extends AbstractChatProvider {
     }
 
     @Override
-    public String stream(ChatRequest request, Consumer<String> tokenConsumer) {
+    public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
         String model = resolveModel(request.model(), properties.defaultModel());
 
         ensureModelAvailable(model);
@@ -75,7 +75,7 @@ public class OllamaProvider extends AbstractChatProvider {
     }
 
     @Override
-    public String call(ChatRequest request) {
+    public String call(ChatCompletionRequest request) {
         String model = resolveModel(request.model(), properties.defaultModel());
 
         ensureModelAvailable(model);

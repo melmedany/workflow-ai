@@ -2,7 +2,7 @@ package io.workflowai.adapter.out.persistence;
 
 import io.workflowai.adapter.out.persistence.agent.run.AgentRunEntity;
 import io.workflowai.adapter.out.persistence.agent.run.AgentRunRepository;
-import io.workflowai.domain.run.TriggerSource;
+import io.workflowai.domain.agent.TriggerSource;
 import io.workflowai.application.port.out.AgentRunTracker;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

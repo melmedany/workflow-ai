@@ -58,10 +58,12 @@ class ArchitectureTest {
       noClasses()
           .that()
           .resideInAPackage("..domain..")
+          .and()
+          .resideOutsideOfPackage("..domain.workflow..")
           .should()
           .dependOnClassesThat()
           .resideInAnyPackage("org.bsc.langgraph4j..")
-          .because("AI frameworks belong in adapters only");
+          .because("LangGraph4J are permitted only in the workflow runtime domain package");
 
   @ArchTest
   ArchRule applicationMustNotDependOnAdapters =
@@ -104,7 +106,7 @@ class ArchitectureTest {
           .because("application should not depend on graph infrastructure");
 
   @ArchTest
-  ArchRule onlyLangChain4jAdapterMayDependOnLangChain4j =
+  ArchRule langChain4jUsageIsRestrictedToWorkflowRuntime =
       noClasses()
           .that()
           .resideOutsideOfPackage("..adapter.out.chat..")
@@ -112,16 +114,6 @@ class ArchitectureTest {
           .dependOnClassesThat()
           .resideInAnyPackage("dev.langchain4j..")
           .because("only the chat adapters may use LangChain4j");
-
-  @ArchTest
-  ArchRule onlyRuntimeAdapterMayDependOnLangGraph4j =
-      noClasses()
-          .that()
-          .resideOutsideOfPackage("..adapter.out.runtime.graph..")
-          .should()
-          .dependOnClassesThat()
-          .resideInAnyPackage("org.bsc.langgraph4j..")
-          .because("only the graph runtime adapter may use LangGraph4j");
 
   @ArchTest
   ArchRule adapterInAndOutMustNotDependOnEachOther =

@@ -1,12 +1,13 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.application.execution.WorkflowState;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.execution.ResponseValidator;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.agent.AgentProperties;
 import io.workflowai.domain.workflow.StageId;
-import io.workflowai.application.execution.WorkflowPrompts;
-import io.workflowai.application.execution.ResponseValidator;
+import io.workflowai.application.execution.workflow.WorkflowPrompts;
 import io.workflowai.domain.workflow.response.ValidationResult;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
 import org.slf4j.Logger;
@@ -15,7 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 
-import static io.workflowai.application.execution.WorkflowPrompts.withResponseContractInstructions;
+import static io.workflowai.application.execution.workflow.WorkflowPrompts.withResponseContractInstructions;
 
 public class SelfVerificationStage implements WorkflowStage {
 
@@ -63,7 +64,7 @@ public class SelfVerificationStage implements WorkflowStage {
                 agentProperties.id(), state.validationFailureReason());
 
         String retryPrompt = WorkflowPrompts.retryPrompt(state.userMessage(), state.generatedResponse().orElse(""), state.validationFailureReason());
-        ChatRequest retryRequest = new ChatRequest(
+        ChatCompletionRequest retryRequest = new ChatCompletionRequest(
                 agentProperties.model(), agentProperties.temperature(),
                 withResponseContractInstructions(state.systemPrompt(), agentProperties.workflowPolicyProperties().responseContract()),
                 retryPrompt, state.memoryContext());

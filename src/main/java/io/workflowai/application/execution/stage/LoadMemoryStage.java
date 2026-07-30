@@ -1,6 +1,7 @@
 package io.workflowai.application.execution.stage;
 
-import io.workflowai.application.execution.WorkflowState;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
 import io.workflowai.domain.workflow.StageId;
 import io.workflowai.application.port.out.AgentMemoryStorage;
 import io.workflowai.application.port.out.WorkflowEventStreamer;

@@ -1,4 +1,4 @@
-package io.workflowai.domain.run;
+package io.workflowai.domain.workflow;
 
 public enum WorkflowOutcome {
     COMPLETED,

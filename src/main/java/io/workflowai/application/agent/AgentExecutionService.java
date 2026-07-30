@@ -3,7 +3,7 @@ package io.workflowai.application.agent;
 import io.workflowai.domain.exceptions.AgentNotFoundException;
 import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.agent.ChatProviderId;
-import io.workflowai.application.port.in.AgentAdminManager;
+import io.workflowai.application.port.in.AgentAdminUseCase;
 import io.workflowai.application.port.out.AgentDefinitionStorage;
 import io.workflowai.application.execution.ChatProviderRegistry;
 
@@ -12,11 +12,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public class AgentAdminService implements AgentAdminManager {
+public class AgentExecutionService implements AgentAdminUseCase {
     private final AgentDefinitionStorage storagePort;
     private final ChatProviderRegistry chatProviderRegistry;
 
-    public AgentAdminService(AgentDefinitionStorage storagePort, ChatProviderRegistry chatProviderRegistry) {
+    public AgentExecutionService(AgentDefinitionStorage storagePort, ChatProviderRegistry chatProviderRegistry) {
         this.storagePort = storagePort;
         this.chatProviderRegistry = chatProviderRegistry;
     }

@@ -3,14 +3,14 @@ package io.workflowai.application.conversation;
 import io.workflowai.domain.exceptions.ConversationNotFoundException;
 import io.workflowai.domain.conversation.Conversation;
 import io.workflowai.domain.conversation.ConversationMessage;
-import io.workflowai.application.port.in.ConversationProvider;
+import io.workflowai.application.port.in.ConversationUseCase;
 import io.workflowai.application.port.out.ConversationStorage;
 import io.workflowai.application.port.out.ConversationMessageStorage;
 
 import java.util.List;
 import java.util.UUID;
 
-public class ConversationService implements ConversationProvider {
+public class ConversationService implements ConversationUseCase {
 
     private final ConversationStorage conversationStorage;
     private final ConversationMessageStorage conversationMessageStorage;

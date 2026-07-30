@@ -1,12 +1,9 @@
 package io.workflowai.bootstrap.config;
 
-import io.workflowai.application.agent.AgentAdminService;
+import io.workflowai.application.agent.AgentExecutionService;
 import io.workflowai.application.conversation.ConversationService;
-import io.workflowai.application.execution.AgentService;
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.application.execution.ResponseValidator;
-import io.workflowai.application.execution.StageSettings;
-import io.workflowai.application.execution.WorkflowFactory;
+import io.workflowai.application.execution.AgentService;
 import io.workflowai.application.execution.stage.ClassificationStage;
 import io.workflowai.application.execution.stage.CompactMemoryStage;
 import io.workflowai.application.execution.stage.CompleteStage;
@@ -19,7 +16,10 @@ import io.workflowai.application.execution.stage.GenerateRefusalStage;
 import io.workflowai.application.execution.stage.LoadMemoryStage;
 import io.workflowai.application.execution.stage.PersistResponseStage;
 import io.workflowai.application.execution.stage.PersistUserMessageStage;
+import io.workflowai.application.execution.ResponseValidator;
 import io.workflowai.application.execution.stage.SelfVerificationStage;
+import io.workflowai.application.execution.stage.StageSettings;
+import io.workflowai.application.execution.workflow.WorkflowFactory;
 import io.workflowai.application.port.out.AgentDefinitionStorage;
 import io.workflowai.application.port.out.AgentMemoryStorage;
 import io.workflowai.application.port.out.AgentRunTracker;
@@ -28,8 +28,9 @@ import io.workflowai.application.port.out.ConversationMessageStorage;
 import io.workflowai.application.port.out.ConversationStorage;
 import io.workflowai.application.port.out.NotificationChannel;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
-import io.workflowai.application.port.out.WorkflowExecutorFactory;
 import io.workflowai.bootstrap.StagesProperties;
+import io.workflowai.domain.workflow.WorkflowExecutorFactory;
+import io.workflowai.domain.workflow.WorkflowStage;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.json.JsonMapper;
@@ -55,6 +56,11 @@ class ApplicationBeansConfig {
     @Bean
     PersistUserMessageStage persistUserMessageStage(ConversationMessageStorage conversationMessageStorage, List<WorkflowEventStreamer> streamers) {
         return new PersistUserMessageStage(conversationMessageStorage, streamers);
+    }
+
+    @Bean
+    ResponseValidator responseValidator(JsonMapper jsonMapper) {
+        return new ResponseValidator(jsonMapper);
     }
 
     @Bean
@@ -133,8 +139,13 @@ class ApplicationBeansConfig {
     }
 
     @Bean
+    WorkflowExecutorFactory workflowExecutorFactory(List<WorkflowStage> stages) {
+        return new WorkflowExecutorFactory(stages);
+    }
+
+    @Bean
     WorkflowFactory workflowFactory(StageSettings settings, ChatProviderRegistry providers,
-                                                    WorkflowExecutorFactory executorFactory) {
+                                    WorkflowExecutorFactory executorFactory) {
         return new WorkflowFactory(settings, providers, executorFactory);
     }
 
@@ -145,8 +156,8 @@ class ApplicationBeansConfig {
     }
 
     @Bean
-    AgentAdminService agentAdminService(AgentDefinitionStorage definitions, ChatProviderRegistry providers) {
-        return new AgentAdminService(definitions, providers);
+    AgentExecutionService agentAdminService(AgentDefinitionStorage definitions, ChatProviderRegistry providers) {
+        return new AgentExecutionService(definitions, providers);
     }
 
     @Bean

@@ -1,7 +1,5 @@
-package io.workflowai.adapter.out.runtime.graph;
+package io.workflowai.domain.workflow;
 
-import io.workflowai.domain.run.WorkflowExecutionResult;
-import io.workflowai.application.port.out.WorkflowExecutor;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphRepresentation;
 import org.slf4j.Logger;
@@ -13,21 +11,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Owns the compiled LangGraph4j graph for one agent and adapts it to the application-owned
- * {@link WorkflowExecutor} contract. Nothing about LangGraph4j leaks past this class.
+ * Owns the compiled LangGraph4j graph for one agent and adapts it. Nothing about LangGraph4j leaks past this class.
  */
-class LangGraph4jWorkflowExecutor implements WorkflowExecutor {
+public class WorkflowExecutor {
 
-    private static final Logger log = LoggerFactory.getLogger(LangGraph4jWorkflowExecutor.class);
+    private static final Logger log = LoggerFactory.getLogger(WorkflowExecutor.class);
     private static final long DEFAULT_TIMEOUT_SECONDS = 300;
 
-    private final CompiledGraph<LangGraph4jState> graph;
+    private final CompiledGraph<WorkflowState> graph;
 
-    LangGraph4jWorkflowExecutor(CompiledGraph<LangGraph4jState> graph) {
+    WorkflowExecutor(CompiledGraph<WorkflowState> graph) {
         this.graph = graph;
     }
 
-    @Override
     public WorkflowExecutionResult execute(Map<String, Object> initialState) {
         CompletableFuture<Void> future = null;
         try {
@@ -43,7 +39,6 @@ class LangGraph4jWorkflowExecutor implements WorkflowExecutor {
         }
     }
 
-    @Override
     public String diagram(String title) {
         return graph.getGraph(GraphRepresentation.Type.MERMAID, title).content();
     }

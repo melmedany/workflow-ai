@@ -1,12 +1,13 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.application.execution.WorkflowState;
+import io.workflowai.application.execution.ResponseValidator;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
 import io.workflowai.domain.agent.AgentProperties;
 import io.workflowai.domain.exceptions.GuardrailBlockedException;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.workflow.StageId;
-import io.workflowai.application.execution.ResponseValidator;
 import io.workflowai.domain.workflow.response.ValidationResult;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
 import org.slf4j.Logger;
@@ -15,7 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 
-import static io.workflowai.application.execution.WorkflowPrompts.withResponseContractInstructions;
+import static io.workflowai.application.execution.workflow.WorkflowPrompts.withResponseContractInstructions;
 
 public class ExecuteWorkflowStage implements WorkflowStage {
 
@@ -42,7 +43,7 @@ public class ExecuteWorkflowStage implements WorkflowStage {
         workflowEventStreamers.forEach(s -> s.stageStarted(state.runId(), StageId.EXECUTE_WORKFLOW));
 
         AgentProperties agentProperties = state.agentProperties();
-        ChatRequest request = new ChatRequest(
+        ChatCompletionRequest request = new ChatCompletionRequest(
                 agentProperties.model(),
                 agentProperties.temperature(),
                 withResponseContractInstructions(state.systemPrompt(), agentProperties.workflowPolicyProperties().responseContract()),

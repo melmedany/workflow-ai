@@ -1,6 +1,6 @@
 package io.workflowai.application.execution.stage;
 
-import io.workflowai.application.execution.WorkflowState;
+import io.workflowai.domain.workflow.WorkflowState;
 import io.workflowai.domain.conversation.ConversationMessage;
 import io.workflowai.domain.conversation.ConversationMessageRole;
 import io.workflowai.domain.workflow.StageId;

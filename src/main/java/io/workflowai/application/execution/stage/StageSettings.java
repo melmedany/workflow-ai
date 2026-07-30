@@ -1,4 +1,4 @@
-package io.workflowai.application.execution;
+package io.workflowai.application.execution.stage;
 
 import io.workflowai.domain.agent.ChatProviderId;
 import io.workflowai.domain.workflow.StageId;

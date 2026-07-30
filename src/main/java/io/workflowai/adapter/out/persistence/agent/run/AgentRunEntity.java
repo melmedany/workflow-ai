@@ -1,7 +1,6 @@
 package io.workflowai.adapter.out.persistence.agent.run;
 
-import io.workflowai.domain.run.AgentRunStatus;
-import io.workflowai.domain.run.TriggerSource;
+import io.workflowai.domain.agent.TriggerSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

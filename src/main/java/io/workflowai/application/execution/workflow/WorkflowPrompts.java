@@ -1,4 +1,4 @@
-package io.workflowai.application.execution;
+package io.workflowai.application.execution.workflow;
 
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.WorkflowPolicy;

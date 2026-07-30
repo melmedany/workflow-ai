@@ -1,4 +1,4 @@
-package io.workflowai.domain.run;
+package io.workflowai.domain.workflow;
 
 public record WorkflowExecutionResult(WorkflowOutcome outcome, String message, Throwable cause) {
 

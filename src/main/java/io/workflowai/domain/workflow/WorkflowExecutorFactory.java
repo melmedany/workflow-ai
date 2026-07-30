@@ -1,52 +1,48 @@
-package io.workflowai.adapter.out.runtime.graph;
+package io.workflowai.domain.workflow;
 
-import io.workflowai.application.execution.WorkflowState;
-import io.workflowai.application.execution.stage.WorkflowStage;
-import io.workflowai.application.port.out.WorkflowExecutor;
-import io.workflowai.application.port.out.WorkflowExecutorFactory;
 import io.workflowai.domain.exceptions.WorkflowBuildException;
 import io.workflowai.domain.exceptions.WorkflowStageException;
-import io.workflowai.domain.workflow.DecisionMode;
-import io.workflowai.domain.workflow.StageId;
-import io.workflowai.domain.workflow.WorkflowId;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncEdgeAction;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.action.NodeAction;
+import org.bsc.langgraph4j.state.AgentStateFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Component
-public class LangGraph4jWorkflowExecutorFactory implements WorkflowExecutorFactory {
+/**
+ * Builds a {@link WorkflowExecutor} for a given workflow topology.
+ */
+public class WorkflowExecutorFactory {
 
-    private static final Logger log = LoggerFactory.getLogger(LangGraph4jWorkflowExecutorFactory.class);
+    private static final Logger log = LoggerFactory.getLogger(WorkflowExecutorFactory.class);
+
+    static final AgentStateFactory<WorkflowState> SCHEMA = WorkflowState::new;
 
     private final Map<StageId, WorkflowStage> stages;
 
-    public LangGraph4jWorkflowExecutorFactory(List<WorkflowStage> stages) {
+    public WorkflowExecutorFactory(List<WorkflowStage> stages) {
         this.stages = stages.stream().collect(Collectors.toMap(WorkflowStage::stageId, Function.identity()));
     }
 
-    @Override
     public WorkflowExecutor build(WorkflowId workflowId) {
-        CompiledGraph<LangGraph4jState> graph = switch (workflowId) {
+        CompiledGraph<WorkflowState> graph = switch (workflowId) {
             case STANDARD -> buildStandardWorkflowGraph();
             // more workflow variants can be added here
             default -> throw new WorkflowBuildException("Unsupported workflow variant: %s".formatted(workflowId));
         };
-        return new LangGraph4jWorkflowExecutor(graph);
+        return new WorkflowExecutor(graph);
     }
 
-    private CompiledGraph<LangGraph4jState> buildStandardWorkflowGraph() {
+    private CompiledGraph<WorkflowState> buildStandardWorkflowGraph() {
         try {
-            StateGraph<LangGraph4jState> stateGraph = new StateGraph<>(LangGraph4jState.SCHEMA);
+            StateGraph<WorkflowState> stateGraph = new StateGraph<>(SCHEMA);
 
             stateGraph
                     .addNode(StageId.PERSIST_USER_MESSAGE.name(), asyncNode(stages.get(StageId.PERSIST_USER_MESSAGE)))
@@ -81,14 +77,14 @@ public class LangGraph4jWorkflowExecutorFactory implements WorkflowExecutorFacto
      * GENERATE_REDIRECT -> COMPACT_MEMORY -> COMPLETE -> END
      * GENERATE_REFUSAL -> COMPACT_MEMORY -> COMPLETE -> END
      */
-    private void wireStandardWorkflowNodes(StateGraph<LangGraph4jState> graph) {
+    private void wireStandardWorkflowNodes(StateGraph<WorkflowState> graph) {
         try {
             graph.addEdge(StateGraph.START, StageId.PERSIST_USER_MESSAGE.name());
             graph.addEdge(StageId.PERSIST_USER_MESSAGE.name(), StageId.LOAD_MEMORY.name());
 
             graph.addConditionalEdges(
                     StageId.LOAD_MEMORY.name(),
-                    AsyncEdgeAction.edge_async(ctx -> new WorkflowState(ctx.data()).triggerSource().name()),
+                    AsyncEdgeAction.edge_async(state -> state.triggerSource().name()),
                     Map.of(
                             "USER_MESSAGE", StageId.CLASSIFICATION.name(),
                             "SYSTEM_TRIGGER", StageId.EXECUTE_WORKFLOW.name()
@@ -97,8 +93,7 @@ public class LangGraph4jWorkflowExecutorFactory implements WorkflowExecutorFacto
 
             graph.addConditionalEdges(
                     StageId.CLASSIFICATION.name(),
-                    AsyncEdgeAction.edge_async(ctx ->
-                            new WorkflowState(ctx.data()).routingDecision()
+                    AsyncEdgeAction.edge_async(state -> state.routingDecision()
                                     .map(d -> d.decisionMode().name())
                                     .orElse(DecisionMode.REFUSE.name())
                     ),
@@ -124,9 +119,8 @@ public class LangGraph4jWorkflowExecutorFactory implements WorkflowExecutorFacto
         }
     }
 
-    private AsyncNodeAction<LangGraph4jState> asyncNode(WorkflowStage stage) {
-        NodeAction<LangGraph4jState> action = s -> {
-            WorkflowState state = new WorkflowState(s.data());
+    private AsyncNodeAction<WorkflowState> asyncNode(WorkflowStage stage) {
+        NodeAction<WorkflowState> action = state -> {
             try {
                 return stage.execute(state);
             } catch (WorkflowStageException ex) {

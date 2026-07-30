@@ -1,6 +1,7 @@
 package io.workflowai.application.execution.stage;
 
-import io.workflowai.application.execution.WorkflowState;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.StageId;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
@@ -10,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 
-import static io.workflowai.application.execution.WorkflowPrompts.greetingPrompt;
+import static io.workflowai.application.execution.workflow.WorkflowPrompts.greetingPrompt;
 
 public class GenerateGreetingStage implements WorkflowStage {
 

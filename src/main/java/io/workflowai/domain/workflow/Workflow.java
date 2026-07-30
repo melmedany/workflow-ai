@@ -1,9 +1,8 @@
-package io.workflowai.application.execution;
+package io.workflowai.domain.workflow;
 
-import io.workflowai.domain.exceptions.WorkflowExecutionException;
 import io.workflowai.domain.agent.AgentProperties;
-import io.workflowai.domain.run.WorkflowExecutionResult;
-import io.workflowai.application.port.out.WorkflowExecutor;
+import io.workflowai.domain.exceptions.WorkflowExecutionException;
+import io.workflowai.domain.agent.TriggerSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,16 +22,15 @@ public class Workflow {
         log.debug("Workflow initialised for agent [{}]", agentProperties.id());
     }
 
-    public void execute(UUID runId, AgentRequest request) {
-        UUID conversationId = request.conversationId();
+    public void execute(UUID runId, UUID conversationId, TriggerSource triggerSource, String message) {
         log.debug("Starting workflow execution for agent [{}], conversation [{}], run [{}], model: [{}]",
                 agentProperties.id(), conversationId, runId, agentProperties.model());
 
         Map<String, Object> initialState = Map.of(
                 WorkflowState.KEY_RUN_ID, runId,
                 WorkflowState.KEY_CONVERSATION_ID, conversationId,
-                WorkflowState.KEY_USER_MESSAGE, request.message(),
-                WorkflowState.KEY_TRIGGER_SOURCE, request.triggerSource(),
+                WorkflowState.KEY_TRIGGER_SOURCE, triggerSource,
+                WorkflowState.KEY_USER_MESSAGE, message,
                 WorkflowState.KEY_SYSTEM_PROMPT, agentProperties.systemPrompt(),
                 WorkflowState.KEY_AGENT_PROPERTIES, agentProperties
         );

@@ -1,10 +1,10 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.application.execution.StageSettings;
-import io.workflowai.application.execution.WorkflowState;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
 import io.workflowai.domain.exceptions.ClassificationException;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.StageId;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
@@ -15,8 +15,8 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.List;
 import java.util.Map;
 
-import static io.workflowai.application.execution.WorkflowPrompts.CLASSIFICATION_SYSTEM_PROMPT;
-import static io.workflowai.application.execution.WorkflowPrompts.classificationPrompt;
+import static io.workflowai.application.execution.workflow.WorkflowPrompts.CLASSIFICATION_SYSTEM_PROMPT;
+import static io.workflowai.application.execution.workflow.WorkflowPrompts.classificationPrompt;
 
 public class ClassificationStage implements WorkflowStage {
 
@@ -57,7 +57,7 @@ public class ClassificationStage implements WorkflowStage {
         StageSettings.StageSetting stageProperties = stagesProperties.get(StageId.CLASSIFICATION);
         String prompt = classificationPrompt(state.agentProperties().id(), state.agentProperties().workflowPolicyProperties(), state.userMessage());
 
-        ChatRequest classifyRequest = new ChatRequest(stageProperties.model(), 0.1, CLASSIFICATION_SYSTEM_PROMPT, prompt, "");
+        ChatCompletionRequest classifyRequest = new ChatCompletionRequest(stageProperties.model(), 0.1, CLASSIFICATION_SYSTEM_PROMPT, prompt, "");
         try {
             String jsonResponse = chatProviderRegistry.get(stageProperties.chatProviderId()).call(classifyRequest);
             return parseRoutingDecision(state, jsonResponse);

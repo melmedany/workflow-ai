@@ -1,4 +1,4 @@
-package io.workflowai.domain.run;
+package io.workflowai.domain.agent;
 
 public enum TriggerSource {
     USER_MESSAGE,

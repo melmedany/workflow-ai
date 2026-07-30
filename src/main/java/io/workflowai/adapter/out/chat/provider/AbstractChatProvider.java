@@ -10,9 +10,9 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
-import io.workflowai.application.execution.WorkflowPrompts;
+import io.workflowai.application.execution.workflow.WorkflowPrompts;
 import io.workflowai.application.port.out.ChatProvider;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.exceptions.ChatProviderStreamingException;
 import io.workflowai.domain.exceptions.GuardrailBlockedException;
 import org.slf4j.Logger;
@@ -49,7 +49,7 @@ public abstract class AbstractChatProvider implements ChatProvider {
         return defaultModel;
     }
 
-    protected List<ChatMessage> buildMessages(ChatRequest request) {
+    protected List<ChatMessage> buildMessages(ChatCompletionRequest request) {
         UserMessage userMessage = UserMessage.from(request.message());
         if (!inputGuardrail.validate(userMessage).isSuccess()) {
             throw new GuardrailBlockedException(getId(), "Input blocked by guardrail");
@@ -97,7 +97,7 @@ public abstract class AbstractChatProvider implements ChatProvider {
 
     abstract protected StreamingChatModel buildStreamingModel(String model, double temperature);
 
-    private String systemPromptWithMemory(ChatRequest request) {
+    private String systemPromptWithMemory(ChatCompletionRequest request) {
         if (request.memoryContext() == null || request.memoryContext().isBlank()) {
             return request.systemPrompt();
         }

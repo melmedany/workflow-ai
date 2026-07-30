@@ -8,9 +8,9 @@ public interface ChatProvider {
 
     ChatProviderId getId();
 
-    String stream(ChatRequest request, Consumer<String> tokenConsumer);
+    String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer);
 
-    String call(ChatRequest request);
+    String call(ChatCompletionRequest request);
 
     boolean supportsModel(String model);
 

@@ -1,8 +1,8 @@
-package io.workflowai.application.execution;
+package io.workflowai.domain.workflow;
 
 import io.workflowai.domain.agent.AgentProperties;
-import io.workflowai.domain.workflow.RoutingDecision;
-import io.workflowai.domain.run.TriggerSource;
+import io.workflowai.domain.agent.TriggerSource;
+import org.bsc.langgraph4j.state.AgentState;
 
 import java.util.Map;
 import java.util.Optional;
@@ -13,7 +13,7 @@ import java.util.UUID;
  * runtime: the LangGraph4j adapter translates its own state type into/out of this one at the
  * node boundary (see {@code adapters.outbound.runtime.langgraph4j}).
  */
-public record WorkflowState(Map<String, Object> data) {
+public class WorkflowState extends AgentState {
 
     public static final String KEY_RUN_ID = "runId";
     public static final String KEY_CONVERSATION_ID = "conversationId";
@@ -28,9 +28,13 @@ public record WorkflowState(Map<String, Object> data) {
     public static final String KEY_VALIDATION_FAILURE_REASON = "validationFailureReason";
     public static final String KEY_RETRIED = "retried";
 
-    @SuppressWarnings("unchecked")
-    private <T> Optional<T> value(String key) {
-        return Optional.ofNullable((T) data.get(key));
+    /**
+     * Constructs an AgentState with the given initial data.
+     *
+     * @param initData the initial data for the agent state
+     */
+    public WorkflowState(Map<String, Object> initData) {
+        super(initData);
     }
 
     public UUID runId() {

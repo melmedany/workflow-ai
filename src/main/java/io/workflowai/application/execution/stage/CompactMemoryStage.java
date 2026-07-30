@@ -1,12 +1,12 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.application.execution.StageSettings;
-import io.workflowai.application.execution.WorkflowState;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.agent.AgentProperties;
 import io.workflowai.domain.workflow.StageId;
-import io.workflowai.application.execution.WorkflowPrompts;
+import io.workflowai.application.execution.workflow.WorkflowPrompts;
 import io.workflowai.application.port.out.AgentMemoryStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,7 +63,7 @@ public class CompactMemoryStage implements WorkflowStage {
         try {
             // TODO: need some improvements
             String prompt = WorkflowPrompts.memoryCompactionPrompt(previousMemory, userMessage, response);
-            ChatRequest request = new ChatRequest(stageProperties.model(), stageProperties.temperature(), agentSystemPrompt, prompt, previousMemory);
+            ChatCompletionRequest request = new ChatCompletionRequest(stageProperties.model(), stageProperties.temperature(), agentSystemPrompt, prompt, previousMemory);
             String compacted = chatProviderRegistry.get(stageProperties.chatProviderId()).call(request);
             if (!compacted.isBlank()) {
                 agentMemoryStorage.replace(conversationId, agentId, compacted);

@@ -1,12 +1,11 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.application.execution.StageSettings;
-import io.workflowai.application.execution.WorkflowState;
+import io.workflowai.domain.workflow.WorkflowState;
 import io.workflowai.application.port.out.AgentMemoryStorage;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.application.port.out.ConversationMessageStorage;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.agent.AgentProperties;
 import io.workflowai.domain.agent.ChatProviderId;
 import io.workflowai.domain.conversation.ConversationMessage;
@@ -98,7 +97,7 @@ class WorkflowStagesTest {
         }
     }
 
-    private void assertRequest(List<ChatRequest> requests, String model, double temperature) {
+    private void assertRequest(List<ChatCompletionRequest> requests, String model, double temperature) {
         assertThat(requests).singleElement().satisfies(request -> {
             assertThat(request.model()).isEqualTo(model);
             assertThat(request.temperature()).isEqualTo(temperature);
@@ -187,8 +186,8 @@ class WorkflowStagesTest {
     private static final class RecordingProvider implements ChatProvider {
         private final ChatProviderId id;
         private final String response;
-        private final List<ChatRequest> streamRequests = new ArrayList<>();
-        private final List<ChatRequest> callRequests = new ArrayList<>();
+        private final List<ChatCompletionRequest> streamRequests = new ArrayList<>();
+        private final List<ChatCompletionRequest> callRequests = new ArrayList<>();
 
         private RecordingProvider(ChatProviderId id, String response) {
             this.id = id;
@@ -201,7 +200,7 @@ class WorkflowStagesTest {
         }
 
         @Override
-        public String stream(ChatRequest request, Consumer<String> tokenConsumer) {
+        public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
             streamRequests.add(request);
             for (String token : response.split("(?<=\\s)")) {
                 tokenConsumer.accept(token);
@@ -210,7 +209,7 @@ class WorkflowStagesTest {
         }
 
         @Override
-        public String call(ChatRequest request) {
+        public String call(ChatCompletionRequest request) {
             callRequests.add(request);
             return response;
         }
@@ -225,11 +224,11 @@ class WorkflowStagesTest {
             return java.util.Set.of();
         }
 
-        private List<ChatRequest> streamRequests() {
+        private List<ChatCompletionRequest> streamRequests() {
             return streamRequests;
         }
 
-        private List<ChatRequest> callRequests() {
+        private List<ChatCompletionRequest> callRequests() {
             return callRequests;
         }
 

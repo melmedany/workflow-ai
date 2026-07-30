@@ -8,7 +8,7 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import io.workflowai.domain.exceptions.ChatProviderCallException;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +37,7 @@ public abstract class AbstractOpenAiProvider extends AbstractChatProvider {
     }
 
     @Override
-    public String stream(ChatRequest request, Consumer<String> tokenConsumer) {
+    public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
         String resolvedModel = resolveModel(request.model(), this.defaultModel);
         List<ChatMessage> messages = buildMessages(request);
         StreamingChatModel streaming = resolvedModel.equals(this.defaultModel)
@@ -48,7 +48,7 @@ public abstract class AbstractOpenAiProvider extends AbstractChatProvider {
     }
 
     @Override
-    public String call(ChatRequest request) {
+    public String call(ChatCompletionRequest request) {
         String resolvedModel = resolveModel(request.model(), this.defaultModel);
         List<ChatMessage> messages = buildMessages(request);
         ChatModel chat = resolvedModel.equals(this.defaultModel)

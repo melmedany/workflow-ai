@@ -2,7 +2,7 @@ package io.workflowai.integration;
 
 import io.workflowai.adapter.out.persistence.agent.run.AgentRunEntity;
 import io.workflowai.adapter.out.persistence.agent.run.AgentRunRepository;
-import io.workflowai.domain.run.AgentRunStatus;
+import io.workflowai.adapter.out.persistence.agent.run.AgentRunStatus;
 import io.workflowai.application.port.out.AgentRunTracker;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,8 +10,8 @@ import org.springframework.test.context.jdbc.Sql;
 
 import java.util.UUID;
 
-import static io.workflowai.domain.run.TriggerSource.SYSTEM_TRIGGER;
-import static io.workflowai.domain.run.TriggerSource.USER_MESSAGE;
+import static io.workflowai.domain.agent.TriggerSource.SYSTEM_TRIGGER;
+import static io.workflowai.domain.agent.TriggerSource.USER_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 

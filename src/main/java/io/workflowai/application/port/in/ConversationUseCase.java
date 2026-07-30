@@ -6,7 +6,7 @@ import io.workflowai.domain.conversation.ConversationMessage;
 import java.util.List;
 import java.util.UUID;
 
-public interface ConversationProvider {
+public interface ConversationUseCase {
     Conversation createConversation(UUID agentId, String firstMessage);
 
     Conversation getConversation(UUID agentId, UUID id);

@@ -1,6 +1,6 @@
 package io.workflowai.application.execution;
 
-import io.workflowai.domain.run.TriggerSource;
+import io.workflowai.domain.agent.TriggerSource;
 
 import java.util.UUID;
 

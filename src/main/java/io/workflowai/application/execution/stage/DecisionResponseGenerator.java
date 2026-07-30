@@ -1,9 +1,8 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.application.execution.StageSettings;
-import io.workflowai.application.execution.WorkflowState;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.domain.workflow.WorkflowState;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.workflow.StageId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +27,7 @@ public class DecisionResponseGenerator {
     String generate(WorkflowState state, StageId stageId, String prompt) {
         StageSettings.StageSetting stageProperties = stagesProperties.get(stageId);
         try {
-            ChatRequest request = new ChatRequest(stageProperties.model(), stageProperties.temperature(), state.systemPrompt(), prompt, state.memoryContext());
+            ChatCompletionRequest request = new ChatCompletionRequest(stageProperties.model(), stageProperties.temperature(), state.systemPrompt(), prompt, state.memoryContext());
             return chatProviderRegistry.get(stageProperties.chatProviderId()).stream(request, _ -> {
             });
         } catch (Exception ex) {

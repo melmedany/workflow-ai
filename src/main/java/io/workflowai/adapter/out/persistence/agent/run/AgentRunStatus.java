@@ -1,4 +1,4 @@
-package io.workflowai.domain.run;
+package io.workflowai.adapter.out.persistence.agent.run;
 
 public enum AgentRunStatus {
     RUNNING,

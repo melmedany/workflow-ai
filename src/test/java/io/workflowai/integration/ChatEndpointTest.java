@@ -7,7 +7,7 @@ import io.workflowai.application.execution.ChatProviderRegistry;
 import io.workflowai.domain.agent.ChatProviderId;
 import io.workflowai.domain.conversation.ConversationMessage;
 import io.workflowai.domain.conversation.ConversationMessageRole;
-import io.workflowai.application.port.out.ChatRequest;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.application.port.out.ConversationMessageStorage;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,14 +54,14 @@ class ChatEndpointTest extends IntegrationBase {
             }
 
             @Override
-            public String stream(ChatRequest request, Consumer<String> tokenConsumer) {
+            public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
                 String response = "Test response";
                 tokenConsumer.accept(response);
                 return response;
             }
 
             @Override
-            public String call(ChatRequest request) {
+            public String call(ChatCompletionRequest request) {
                 return "{\"decisionMode\":\"GREET\",\"detectedTopics\":[],\"extractedIntent\":\"Hello\",\"clarificationQuestion\":null,\"reason\":\"Greeting\"}";
             }
 

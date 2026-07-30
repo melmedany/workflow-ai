@@ -1,6 +1,6 @@
 package io.workflowai.application.port.out;
 
-public record ChatRequest(
+public record ChatCompletionRequest(
         String model,
         double temperature,
         String systemPrompt,

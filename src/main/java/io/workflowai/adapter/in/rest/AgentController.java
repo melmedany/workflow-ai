@@ -12,8 +12,8 @@ import io.workflowai.adapter.in.rest.dto.StagePayload;
 import io.workflowai.application.execution.AgentRequest;
 import io.workflowai.domain.workflow.WorkflowEvent;
 import io.workflowai.domain.workflow.StageId;
-import io.workflowai.application.port.in.AgentProvider;
-import io.workflowai.application.port.in.ConversationProvider;
+import io.workflowai.application.port.in.AgentUseCase;
+import io.workflowai.application.port.in.ConversationUseCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -56,13 +56,13 @@ public class AgentController {
 
     private static final Logger log = LoggerFactory.getLogger(AgentController.class);
 
-    private final AgentProvider agentService;
-    private final ConversationProvider conversationService;
+    private final AgentUseCase agentService;
+    private final ConversationUseCase conversationService;
     private final JsonMapper jsonMapper;
 
     public AgentController(
-            AgentProvider agentService,
-            ConversationProvider conversationService,
+            AgentUseCase agentService,
+            ConversationUseCase conversationService,
             JsonMapper jsonMapper) {
         this.agentService = agentService;
         this.conversationService = conversationService;

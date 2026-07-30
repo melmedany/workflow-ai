@@ -1,11 +1,13 @@
 package io.workflowai.application.execution;
 
+import io.workflowai.application.execution.workflow.WorkflowFactory;
+import io.workflowai.domain.workflow.Workflow;
 import io.workflowai.domain.workflow.WorkflowId;
 import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.exceptions.AgentNotFoundException;
 import io.workflowai.domain.agent.AgentProperties;
 import io.workflowai.domain.workflow.WorkflowEvent;
-import io.workflowai.application.port.in.AgentProvider;
+import io.workflowai.application.port.in.AgentUseCase;
 import io.workflowai.application.port.out.AgentDefinitionStorage;
 import io.workflowai.application.port.out.AgentRunTracker;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
@@ -16,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-public class AgentService implements AgentProvider {
+public class AgentService implements AgentUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(AgentService.class);
 
@@ -101,7 +103,7 @@ public class AgentService implements AgentProvider {
             @Override
             public void execute(UUID runId, AgentRequest request) {
                 log.debug("Agent [{}] executing request for conversation [{}]", agentProperties.id(), request.conversationId());
-                workflow.execute(runId, request);
+                workflow.execute(runId, request.conversationId(), request.triggerSource(), request.message());
             }
         };
     }
