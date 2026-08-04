@@ -55,7 +55,7 @@ public class ClassificationStage implements WorkflowStage {
 
     private RoutingDecision performClassification(WorkflowState state) {
         StageSettings.StageSetting stageProperties = stagesProperties.get(StageId.CLASSIFICATION);
-        String prompt = classificationPrompt(state.agentProperties().id(), state.agentProperties().workflowPolicyProperties(), state.userMessage());
+        String prompt = classificationPrompt(state.agentProperties().id(), state.agentProperties().workflowPolicy(), state.userMessage());
 
         ChatCompletionRequest classifyRequest = new ChatCompletionRequest(stageProperties.model(), 0.1, CLASSIFICATION_SYSTEM_PROMPT, prompt, "");
         try {

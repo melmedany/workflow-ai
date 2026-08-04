@@ -1,6 +1,7 @@
 package io.workflowai.adapter.in.rest.dto;
 
 import io.workflowai.application.execution.Agent;
+import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.conversation.Conversation;
 import io.workflowai.domain.conversation.ConversationMessage;
 
@@ -22,5 +23,14 @@ public class Mappers {
 
     public static MessageResponse toMessageResponse(ConversationMessage cm) {
         return new MessageResponse(cm.role(), cm.content());
+    }
+
+    public static AgentSummaryDto toAgentSummary(AgentDefinition definition) {
+        return new AgentSummaryDto(
+                definition.agentId(),
+                definition.details().displayName(),
+                definition.details().enabled(),
+                definition.chatProperties().providerId(),
+                definition.chatProperties().model());
     }
 }

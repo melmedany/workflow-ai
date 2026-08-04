@@ -1,9 +1,11 @@
 package io.workflowai.adapter.in.rest;
 
+import io.workflowai.adapter.in.rest.dto.AgentSummaryDto;
+import io.workflowai.adapter.in.rest.dto.Mappers;
+import io.workflowai.application.port.in.AgentAdminUseCase;
 import io.workflowai.application.port.in.AgentUseCase;
 import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.agent.ChatProviderId;
-import io.workflowai.application.port.in.AgentAdminUseCase;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,8 +41,10 @@ public class AgentAdminController {
     }
 
     @GetMapping({"", "/"})
-    public ResponseEntity<List<AgentDefinition>> getAgents() {
-        return ResponseEntity.ok(agentAdminUseCase.getAllDefinitions());
+    public ResponseEntity<List<AgentSummaryDto>> getAgents() {
+        return ResponseEntity.ok(agentAdminUseCase.getAllDefinitions().stream()
+                .map(Mappers::toAgentSummary)
+                .toList());
     }
 
     @GetMapping("/{agentId}")
@@ -50,7 +54,7 @@ public class AgentAdminController {
 
     @GetMapping(path = "/{agentId}/workflowDiagram", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> getWorkflowDiagram(@PathVariable UUID agentId) {
-        return ResponseEntity.ok(agentUseCase.workflowDiagram(agentId));
+        return ResponseEntity.ok(agentUseCase.get(agentId).workflowDiagram());
     }
 
     @PostMapping({"", "/"})
@@ -64,8 +68,9 @@ public class AgentAdminController {
         AgentDefinition updated = agentAdminUseCase.updateDefinition(new AgentDefinition(
                 agentId,
                 definition.details(),
+                definition.workflowId(),
                 definition.chatProperties(),
-                definition.workflowPolicyProperties()));
+                definition.workflowPolicy()));
 
         return ResponseEntity.ok(updated);
     }

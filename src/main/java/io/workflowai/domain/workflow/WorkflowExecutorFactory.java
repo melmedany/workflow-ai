@@ -11,13 +11,15 @@ import org.bsc.langgraph4j.state.AgentStateFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Builds a {@link WorkflowExecutor} for a given workflow topology.
+ * Builds a {@link WorkflowExecutor} for a given workflow.
  */
 public class WorkflowExecutorFactory {
 
@@ -25,16 +27,23 @@ public class WorkflowExecutorFactory {
 
     static final AgentStateFactory<WorkflowState> SCHEMA = WorkflowState::new;
 
+    // keep in sync with the switch in build(WorkflowId)
+    private static final Set<WorkflowId> SUPPORTED = EnumSet.of(WorkflowId.STANDARD);
+
     private final Map<StageId, WorkflowStage> stages;
 
     public WorkflowExecutorFactory(List<WorkflowStage> stages) {
         this.stages = stages.stream().collect(Collectors.toMap(WorkflowStage::stageId, Function.identity()));
     }
 
+    public boolean isSupported(WorkflowId workflowId) {
+        return SUPPORTED.contains(workflowId);
+    }
+
     public WorkflowExecutor build(WorkflowId workflowId) {
         CompiledGraph<WorkflowState> graph = switch (workflowId) {
             case STANDARD -> buildStandardWorkflowGraph();
-            // more workflow variants can be added here
+            // more workflow variants can be mapped here
             default -> throw new WorkflowBuildException("Unsupported workflow variant: %s".formatted(workflowId));
         };
         return new WorkflowExecutor(graph);

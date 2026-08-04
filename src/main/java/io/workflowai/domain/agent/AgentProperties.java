@@ -1,5 +1,6 @@
 package io.workflowai.domain.agent;
 
+import io.workflowai.domain.workflow.WorkflowId;
 import io.workflowai.domain.workflow.WorkflowPolicy;
 
 import java.io.Serializable;
@@ -13,10 +14,11 @@ public record AgentProperties(
         String displayName,
         String description,
         boolean enabled,
+        WorkflowId workflowId,
         ChatProviderId chatProviderId,
         String model,
         double temperature,
         String systemPrompt,
         boolean memoryEnabled,
-        WorkflowPolicy workflowPolicyProperties) implements Serializable {
+        WorkflowPolicy workflowPolicy) implements Serializable {
 }

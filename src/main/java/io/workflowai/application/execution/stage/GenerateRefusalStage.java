@@ -40,7 +40,7 @@ public class GenerateRefusalStage implements WorkflowStage {
         RoutingDecision decision = state.routingDecision()
                 .orElse(RoutingDecision.refuse("Refusing request", state.userMessage()));
         String refusal = decisionResponseGenerator.generate(state, StageId.GENERATE_REFUSAL,
-                refusalPrompt(state.systemPrompt(), state.agentProperties().workflowPolicyProperties(), decision));
+                refusalPrompt(state.systemPrompt(), state.agentProperties().workflowPolicy(), decision));
 
         workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.GENERATE_REFUSAL));
         String finalResponse = persistResponseStage.finalizeResponse(state, refusal);

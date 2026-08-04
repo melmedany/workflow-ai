@@ -32,7 +32,7 @@ public class DecisionResponseGenerator {
             });
         } catch (Exception ex) {
             log.warn("[{}] Decision response generation failed, using fallback: {}", state.agentProperties().id(), ex.getMessage());
-            return state.agentProperties().workflowPolicyProperties().failedToProcessMessage();
+            return state.agentProperties().workflowPolicy().failedToProcessMessage();
         }
     }
 }

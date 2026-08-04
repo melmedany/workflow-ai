@@ -12,6 +12,7 @@ import io.workflowai.domain.conversation.ConversationMessage;
 import io.workflowai.domain.workflow.DecisionMode;
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.StageId;
+import io.workflowai.domain.workflow.WorkflowId;
 import io.workflowai.domain.workflow.WorkflowPolicy;
 import org.junit.jupiter.api.Test;
 
@@ -128,7 +129,7 @@ class WorkflowStagesTest {
 
     private AgentProperties agentProperties() {
         return new AgentProperties(UUID.randomUUID(), "agent", "description", true,
-                ChatProviderId.Ollama, "agent-model", 0.9, "system", true,
+                WorkflowId.STANDARD, ChatProviderId.Ollama, "agent-model", 0.9, "system", true,
                 new WorkflowPolicy(List.of(), null, "fallback"));
     }
 

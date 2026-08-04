@@ -40,7 +40,7 @@ public class GenerateGreetingStage implements WorkflowStage {
         RoutingDecision decision = state.routingDecision()
                 .orElse(RoutingDecision.greet("Greeting", state.userMessage()));
         String greeting = decisionResponseGenerator.generate(state, StageId.GENERATE_GREETING,
-                greetingPrompt(state.systemPrompt(), state.agentProperties().workflowPolicyProperties(), decision));
+                greetingPrompt(state.systemPrompt(), state.agentProperties().workflowPolicy(), decision));
 
         workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.GENERATE_GREETING));
         String finalResponse = persistResponseStage.finalizeResponse(state, greeting);

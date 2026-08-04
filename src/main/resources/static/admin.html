@@ -32,70 +32,94 @@
             <form id="agent-form" class="admin-form">
                 <div class="admin-form-intro">
                     <h2>Agent properties</h2>
-                    <p>Choose an agent, select one of the supported Chat providers and models, then enter the agent contract.</p>
+                    <p>Choose an agent, then edit its overview, instructions, or workflow.</p>
                 </div>
-                <div class="checkbox-row">
-                    <label><input id="agent-enabled" type="checkbox"> Agent enabled</label>
-                    <label><input id="memory-enabled" type="checkbox"> Memory enabled</label>
-                </div>
-                <label>Agent ID
-                    <input id="agent-id" disabled>
-                </label>
-                <label>Display name
-                    <input id="display-name" type="text" required>
-                </label>
-                <label>Description
-                    <input id="description" type="text" required>
-                </label>
-                <div class="form-grid">
-                    <label>Chat Providers
-                        <select id="chat-provider" required></select>
-                        <span class="field-help">System-supported chat provider for this agent.</span>
+
+                <nav class="tab-nav" aria-label="Agent detail tabs">
+                    <a class="tab-link" data-tab="overview" href="#overview">Overview</a>
+                    <a class="tab-link" data-tab="instructions" href="#instructions">Instructions &amp; Policy</a>
+                    <a class="tab-link" data-tab="workflow" href="#workflow">Workflow</a>
+                </nav>
+
+                <section id="tab-overview" class="tab-panel">
+                    <div class="checkbox-row">
+                        <label><input id="agent-enabled" type="checkbox"> Agent enabled</label>
+                    </div>
+                    <label>Agent ID
+                        <input id="agent-id" disabled>
                     </label>
-                    <label>Models
-                        <select id="model" required></select>
-                        <span class="field-help">Available models update when the provider changes.</span>
+                    <label>Display name
+                        <input id="display-name" type="text" required>
                     </label>
-                    <label>Temperature
-                        <input id="temperature" type="number" min="0" max="2" step="0.1" required>
+                    <label>Description
+                        <input id="description" type="text" required>
                     </label>
-                </div>
-                <label>Agent Prompt
-                    <textarea id="agent-prompt" rows="10" required></textarea>
-                    <span class="field-help">Instructions and guidelines for the agent.</span>
-                </label>
-                <label>Supported Capabilities (one per line)
-                    <textarea id="supported-capabilities" rows="5"></textarea>
-                    <span class="field-help">Used by routing to decide which requests the agent can handle.</span>
-                </label>
-                <label>Failed-to-process fallback
-                    <textarea id="fallback-failed-to-process" rows="3" required></textarea>
-                    <span class="field-help">Used only if the model cannot generate a greeting, refusal, or redirect response.</span>
-                </label>
-                <div class="admin-form-intro">
-                    <h3>Response contract</h3>
-                    <p>What a valid generated response must look like. Self-verification retries once when a response fails this check.</p>
-                </div>
-                <div class="form-grid">
-                    <label>Response format
-                        <select id="response-format">
-                            <option value="TEXT">Free text</option>
-                            <option value="JSON">JSON</option>
-                        </select>
-                    </label>
-                    <label>Minimum length
-                        <input id="response-min-length" type="number" min="0" step="1" value="0">
-                        <span class="field-help">Characters. 0 disables the check.</span>
-                    </label>
-                </div>
-                <label id="response-required-fields-row" class="hidden">Required JSON fields (one per line)
-                    <textarea id="response-required-fields" rows="4"></textarea>
-                    <span class="field-help">Top-level field names the JSON response must contain, e.g. confirmationStatus.</span>
-                </label>
-                <section class="workflow-diagram-panel">
-                    <h3>Workflow diagram</h3>
-                    <div id="workflow-diagram" class="workflow-diagram">Select an agent to view its workflow.</div>
                 </section>
+
+                <section id="tab-instructions" class="tab-panel hidden">
+                    <label>Agent Prompt
+                        <textarea id="agent-prompt" rows="10" required></textarea>
+                        <span class="field-help">Instructions and guidelines for the agent.</span>
+                    </label>
+                    <label>Supported Capabilities (one per line)
+                        <textarea id="supported-capabilities" rows="5"></textarea>
+                        <span class="field-help">Used by routing to decide which requests the agent can handle.</span>
+                    </label>
+                    <label>Failed-to-process fallback
+                        <textarea id="fallback-failed-to-process" rows="3" required></textarea>
+                        <span class="field-help">Used only if the model cannot generate a greeting, refusal, or redirect response.</span>
+                    </label>
+                    <div class="admin-form-intro">
+                        <h3>Response contract</h3>
+                        <p>What a valid generated response must look like. Self-verification retries once when a response fails this check.</p>
+                    </div>
+                    <div class="form-grid">
+                        <label>Response format
+                            <select id="response-format">
+                                <option value="TEXT">Free text</option>
+                                <option value="JSON">JSON</option>
+                            </select>
+                        </label>
+                        <label>Minimum length
+                            <input id="response-min-length" type="number" min="0" step="1" value="0">
+                            <span class="field-help">Characters. 0 disables the check.</span>
+                        </label>
+                    </div>
+                    <label id="response-required-fields-row" class="hidden">Required JSON fields (one per line)
+                        <textarea id="response-required-fields" rows="4"></textarea>
+                        <span class="field-help">Top-level field names the JSON response must contain, e.g. confirmationStatus.</span>
+                    </label>
+                </section>
+
+                <section id="tab-workflow" class="tab-panel hidden">
+                    <label>Workflow
+                        <select id="workflow-id" required>
+                            <option value="STANDARD">Standard</option>
+                        </select>
+                        <span class="field-help">The workflow this agent executes. Configured via application.yml.</span>
+                    </label>
+                    <div class="form-grid">
+                        <label>Chat Providers
+                            <select id="chat-provider" required></select>
+                            <span class="field-help">System-supported chat provider for this agent.</span>
+                        </label>
+                        <label>Models
+                            <select id="model" required></select>
+                            <span class="field-help">Available models update when the provider changes.</span>
+                        </label>
+                        <label>Temperature
+                            <input id="temperature" type="number" min="0" max="2" step="0.1" required>
+                        </label>
+                    </div>
+                    <div class="checkbox-row">
+                        <label><input id="memory-enabled" type="checkbox"> Memory enabled</label>
+                    </div>
+                    <section class="workflow-diagram-panel">
+                        <h3>Workflow diagram</h3>
+                        <div id="workflow-diagram" class="workflow-diagram">Select an agent to view its workflow.</div>
+                    </section>
+                </section>
+
                 <div id="admin-status" class="admin-status"></div>
                 <div class="form-actions">
                     <button type="submit" id="save-agent-btn" class="save-agent-btn">Save agent</button>

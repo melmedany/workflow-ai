@@ -1,6 +1,7 @@
 package io.workflowai.adapter.in.rest;
 
 import io.workflowai.domain.exceptions.AgentNotFoundException;
+import io.workflowai.domain.exceptions.AgentValidationException;
 import io.workflowai.domain.exceptions.ClassificationException;
 import io.workflowai.domain.exceptions.ConversationNotFoundException;
 import io.workflowai.domain.exceptions.ChatProviderException;
@@ -61,6 +62,13 @@ public class GlobalExceptionHandler {
             WorkflowExecutionException ex, WebRequest request) {
         log.warn("Workflow execution error for agent: {}", ex.getMessage());
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Workflow execution failed", request);
+    }
+
+    @ExceptionHandler(AgentValidationException.class)
+    public ResponseEntity<Map<String, Object>> handleAgentValidation(
+            AgentValidationException ex, WebRequest request) {
+        log.debug("Agent validation error: {}", ex.getMessage());
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

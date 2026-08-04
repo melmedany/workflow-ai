@@ -71,7 +71,7 @@ public class AgentController {
 
     @GetMapping({"", "/"})
     public ResponseEntity<List<AgentInfo>> getAgents() {
-        List<AgentInfo> agents = agentService.getAll().stream()
+        List<AgentInfo> agents = agentService.getEnabledAgents().stream()
                 .map(Mappers::toAgentInfo)
                 .toList();
         return ResponseEntity.ok(agents);

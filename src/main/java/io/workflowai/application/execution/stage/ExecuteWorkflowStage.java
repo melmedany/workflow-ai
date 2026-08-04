@@ -46,7 +46,7 @@ public class ExecuteWorkflowStage implements WorkflowStage {
         ChatCompletionRequest request = new ChatCompletionRequest(
                 agentProperties.model(),
                 agentProperties.temperature(),
-                withResponseContractInstructions(state.systemPrompt(), agentProperties.workflowPolicyProperties().responseContract()),
+                withResponseContractInstructions(state.systemPrompt(), agentProperties.workflowPolicy().responseContract()),
                 state.userMessage(),
                 state.memoryContext());
 
@@ -63,12 +63,12 @@ public class ExecuteWorkflowStage implements WorkflowStage {
             // hit the exact same block, so short-circuit straight to a final, already-safe response.
             log.warn("[{}] Input guardrail blocked system-triggered request — returning fallback", agentProperties.id());
             return Map.of(
-                    WorkflowState.KEY_GENERATED_RESPONSE, agentProperties.workflowPolicyProperties().failedToProcessMessage(),
+                    WorkflowState.KEY_GENERATED_RESPONSE, agentProperties.workflowPolicy().failedToProcessMessage(),
                     WorkflowState.KEY_VALIDATION_PASSED, true);
         }
 
         ValidationResult validation = responseValidator
-                .validate(agentProperties.workflowPolicyProperties().responseContract(), response);
+                .validate(agentProperties.workflowPolicy().responseContract(), response);
         if (!validation.valid()) {
             log.warn("[{}] Generated response failed validation: {}", agentProperties.id(), validation.reason());
         }

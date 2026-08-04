@@ -1,12 +1,37 @@
 const ADMIN_API = '/api/admin/agents';
+const TABS = ['overview', 'instructions', 'workflow'];
 let agents = [];
 let chatProviders = [];
+let selectedAgentId = null;
 
 async function adminFetch(path, options) {
     const res = await fetch(`${ADMIN_API}/${path}`, options);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     if (res.status === 204) return null;
     return res.json();
+}
+
+function currentTab() {
+    const hash = location.hash.replace('#', '');
+    return TABS.includes(hash) ? hash : 'overview';
+}
+
+function switchTab(tab) {
+    TABS.forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
+    document.querySelectorAll('.tab-link').forEach(link => link.classList.toggle('active', link.dataset.tab === tab));
+}
+
+async function loadTabsData() {
+    if (!selectedAgentId) return;
+    try {
+        const agent = await adminFetch(`${selectedAgentId}`);
+        fillOverview(agent);
+        fillInstructions(agent);
+        fillWorkflow(agent);
+        setStatus('');
+    } catch (err) {
+        setStatus('Failed to load ' + tab + ': ' + err.message, true);
+    }
 }
 
 async function initAdmin() {
@@ -18,12 +43,11 @@ async function initAdmin() {
                 .map(([key, arrayValue]) => [key, [...arrayValue].sort((a, b) => a.localeCompare(b))])
         );
         renderChatProviders();
+        switchTab(currentTab());
         await loadAdminAgents();
 
         if (agents.length > 0) {
-            const defaultAgent = agents[0];
-            const diagram = await fetchAgentDiagram(defaultAgent.agentId);
-            fillForm(defaultAgent, diagram);
+            selectAgent(agents[0].agentId);
         } else {
             resetForm();
         }
@@ -36,24 +60,52 @@ async function initAdmin() {
 async function loadAdminAgents() {
     agents = await adminFetch('');
     const list = document.getElementById('admin-agent-list');
+    list.innerHTML = '';
     if (!agents.length) {
         list.innerHTML = '<div class="conversation-item">No agent definitions.</div>';
         return;
     }
-    list.innerHTML = '';
     for (const agent of agents) {
         const item = document.createElement('div');
-        item.className = `admin-agent-item ${agent.agentId === agents[0].agentId ? 'active' : ''}`;
-        item.innerHTML = '<strong>' + escapeHtml(agent.details.displayName) + '</strong>'
-            + chatBadgeHtml(agent.chatProperties?.providerId, agent.chatProperties?.model);
-        item.onclick = async () => {
-            list.querySelectorAll('.active').forEach(i => i.classList.remove('active'));
-            const diagram = await fetchAgentDiagram(agent.agentId);
-            item.classList.add('active');
-            fillForm(agent, diagram);
-        };
+        item.className = 'admin-agent-item';
+        item.dataset.agentId = agent.agentId;
+        item.innerHTML = '<strong>' + escapeHtml(agent.displayName) + '</strong>'
+            + chatBadgeHtml(agent.chatProviderId, agent.model);
+        item.onclick = () => selectAgent(agent.agentId);
         list.appendChild(item);
     }
+    highlightSelectedAgent();
+}
+
+function highlightSelectedAgent() {
+    document.querySelectorAll('#admin-agent-list .admin-agent-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.agentId === selectedAgentId);
+    });
+}
+
+function selectAgent(agentId) {
+    selectedAgentId = agentId;
+    highlightSelectedAgent();
+    loadTabsData();
+}
+
+function fillOverview(agent) {
+    document.getElementById('agent-id').value = agent.agentId || '';
+    document.getElementById('agent-enabled').checked = !!agent.details.enabled;
+    document.getElementById('display-name').value = agent.details.displayName || '';
+    document.getElementById('description').value = agent.details.description || '';
+}
+
+function fillInstructions(agent) {
+    document.getElementById('agent-prompt').value = agent.chatProperties.agentPrompt || '';
+    document.getElementById('supported-capabilities').value = (agent.workflowPolicy.supportedCapabilities || []).join('\n');
+    document.getElementById('fallback-failed-to-process').value = agent.workflowPolicy.fallbackFailedToProcess || '';
+
+    const format = agent.workflowPolicy.responseContract?.format || 'TEXT';
+    document.getElementById('response-format').value = format;
+    document.getElementById('response-min-length').value = agent.workflowPolicy.responseContract?.minLength ?? 0;
+    document.getElementById('response-required-fields').value = (agent.workflowPolicy.responseContract?.requiredFields || []).join('\n');
+    toggleResponseContractFields(format);
 }
 
 async function fetchAgentDiagram(agentId) {
@@ -64,29 +116,14 @@ async function fetchAgentDiagram(agentId) {
     return res.text();
 }
 
-function fillForm(agent, agentWorkflowDiagram) {
-    document.getElementById('agent-id').value = agent.agentId;
-    document.getElementById('agent-enabled').checked = agent.details.enabled;
-    document.getElementById('display-name').value = agent.details.displayName || '';
-    document.getElementById('description').value = agent.details.description || '';
+async function fillWorkflow(agent) {
+    document.getElementById('workflow-id').value = agent.workflowId || 'STANDARD';
     document.getElementById('chat-provider').value = agent.chatProperties.providerId || chatProviders[0]?.providerId || '';
     renderModelOptions(agent.chatProperties.model || '');
     document.getElementById('temperature').value = agent.chatProperties.temperature ?? 0.7;
     document.getElementById('memory-enabled').checked = !!agent.chatProperties.memoryEnabled;
-    document.getElementById('agent-prompt').value = (agent.chatProperties.agentPrompt);
-    document.getElementById('supported-capabilities').value = (agent.workflowPolicyProperties.supportedCapabilities || []).join('\n');
-    document.getElementById('fallback-failed-to-process').value = agent.workflowPolicyProperties.fallbackFailedToProcess || '';
-    fillResponseContract(agent.workflowPolicyProperties.responseContract);
-    renderWorkflowDiagram(agentWorkflowDiagram || '', agent.agentId);
-    setStatus('');
-}
-
-function fillResponseContract(responseContract) {
-    const format = responseContract?.format || 'TEXT';
-    document.getElementById('response-format').value = format;
-    document.getElementById('response-min-length').value = responseContract?.minLength ?? 0;
-    document.getElementById('response-required-fields').value = (responseContract?.requiredFields || []).join('\n');
-    toggleResponseContractFields(format);
+    const diagram = await fetchAgentDiagram(agent.agentId);
+    renderWorkflowDiagram(diagram || '', agent.agentId);
 }
 
 function toggleResponseContractFields(format) {
@@ -96,11 +133,13 @@ function toggleResponseContractFields(format) {
 
 function resetForm() {
     document.getElementById('agent-form').reset();
+    selectedAgentId = null;
+    highlightSelectedAgent();
     renderChatProviders();
     renderModelOptions();
+    document.getElementById('workflow-id').value = 'STANDARD';
     document.getElementById('temperature').value = 0.7;
     document.getElementById('fallback-failed-to-process').value = "I couldn't process that safely right now. Please try again.";
-    fillResponseContract(null);
     renderWorkflowDiagram('', '');
     setStatus('');
 }
@@ -138,7 +177,6 @@ async function renderWorkflowDiagram(diagram, agentId) {
         mouseWheelZoomEnabled: true,
         preventMouseEventsDefault: true,
     });
-
     addToolbar(container, pz);
 }
 
@@ -203,7 +241,8 @@ function nonEmptyLines(id) {
 
 function readForm() {
     return {
-        agentId: document.getElementById('agent-id').value,
+        agentId: selectedAgentId || null,
+        workflowId: document.getElementById('workflow-id').value,
         details: {
             enabled: document.getElementById('agent-enabled').checked,
             displayName: document.getElementById('display-name').value.trim(),
@@ -216,20 +255,17 @@ function readForm() {
             temperature: Number(document.getElementById('temperature').value),
             memoryEnabled: document.getElementById('memory-enabled').checked,
         },
-        workflowPolicyProperties: {
+        workflowPolicy: {
             supportedCapabilities: lines('supported-capabilities'),
             fallbackFailedToProcess: document.getElementById('fallback-failed-to-process').value.trim(),
-            responseContract: readResponseContract(),
-        },
-    };
-}
+            responseContract: {
+                format: document.getElementById('response-format').value,
+                requiredFields: document.getElementById('response-format').value === 'JSON' ?
+                    nonEmptyLines('response-required-fields') : [],
+                minLength: Number(document.getElementById('response-min-length').value) || 0,
 
-function readResponseContract() {
-    const format = document.getElementById('response-format').value;
-    return {
-        format: format,
-        requiredFields: format === 'JSON' ? nonEmptyLines('response-required-fields') : [],
-        minLength: Number(document.getElementById('response-min-length').value) || 0,
+            }
+        },
     };
 }
 
@@ -237,21 +273,21 @@ async function saveAgent(e) {
     e.preventDefault();
     const agent = readForm();
     const exists = agents.some(a => a.agentId === agent.agentId);
-    await adminFetch(exists ? `${agent.agentId}` : '', {
+    const saved = await adminFetch(exists ? `${agent.agentId}` : '', {
         method: exists ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(agent),
     });
+    selectedAgentId = saved.agentId;
     await loadAdminAgents();
-    const diagram = await fetchAgentDiagram(agent.agentId);
-    fillForm(agent, diagram);
+    await loadTabsData();
     setStatus('Saved. It may take some time for runtime agent changes to take effect.');
 }
 
 async function deleteAgent() {
-    const agentId = document.getElementById('agent-id').value;
-    if (!agentId || !confirm('Delete agent: ' + agentId + '?')) return;
-    await adminFetch(agentId, { method: 'DELETE' });
+    if (!selectedAgentId || !confirm('Delete agent: ' + selectedAgentId + '?')) return;
+    await adminFetch(selectedAgentId, { method: 'DELETE' });
+    selectedAgentId = null;
     await loadAdminAgents();
     resetForm();
     setStatus('Deleted. It may take some time for runtime agent changes to take effect.');
@@ -279,5 +315,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('response-format').addEventListener('change', (e) => toggleResponseContractFields(e.target.value));
     document.getElementById('delete-agent-btn').addEventListener('click', deleteAgent);
     document.getElementById('new-agent-btn').addEventListener('click', resetForm);
+    window.addEventListener('hashchange', () => {
+        loadTabsData().then(switchTab(currentTab()));
+    });
     initAdmin();
 });

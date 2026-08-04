@@ -736,7 +736,7 @@ textarea::placeholder {
 /* ── Admin page ─────────────────────────────────────────────── */
 
 .admin-container {
-    max-width: 1120px;
+    max-width: 1520px;
 }
 
 .admin-back {
@@ -872,6 +872,37 @@ textarea::placeholder {
 
 .hidden {
     display: none!important;
+}
+
+.tab-nav {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+}
+
+.tab-link {
+    padding: 8px 12px;
+    color: var(--muted);
+    font-size: 0.86rem;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+}
+
+.tab-link:hover {
+    color: var(--text);
+}
+
+.tab-link.active {
+    color: var(--text);
+    border-bottom-color: var(--green);
+}
+
+.tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .chat-badge {

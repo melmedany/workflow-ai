@@ -2,7 +2,6 @@ package io.workflowai.application.execution;
 
 import io.workflowai.application.execution.workflow.WorkflowFactory;
 import io.workflowai.domain.workflow.Workflow;
-import io.workflowai.domain.workflow.WorkflowId;
 import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.exceptions.AgentNotFoundException;
 import io.workflowai.domain.agent.AgentProperties;
@@ -66,13 +65,8 @@ public class AgentService implements AgentUseCase {
     }
 
     @Override
-    public String workflowDiagram(UUID id) {
-        return get(id).workflowDiagram();
-    }
-
-    @Override
-    public List<Agent> getAll() {
-        return definitionStoragePort.findAll().stream()
+    public List<Agent> getEnabledAgents() {
+        return definitionStoragePort.findEnabledAgents().stream()
                 .map(this::createAgent)
                 .toList();
     }
@@ -80,10 +74,10 @@ public class AgentService implements AgentUseCase {
     // TODO: created agents can be cached instead of creating them on every request
     private Agent createAgent(AgentDefinition definition) {
         AgentProperties agentProperties = toAgentProperties(definition);
-        Workflow workflow = workflowFactory.build(WorkflowId.STANDARD, agentProperties);
+        Workflow workflow = workflowFactory.build(agentProperties.workflowId(), agentProperties);
 
-        log.debug("Initialising agent [{}] with chat provider [{}] and workflowPolicyProperties [{}]",
-                agentProperties.displayName(), agentProperties.chatProviderId(), agentProperties.workflowPolicyProperties());
+        log.debug("Initialising agent [{}] with chat provider [{}] and workflowPolicy [{}]",
+                agentProperties.displayName(), agentProperties.chatProviderId(), agentProperties.workflowPolicy());
         return new Agent() {
             @Override
             public AgentProperties properties() {
@@ -92,12 +86,12 @@ public class AgentService implements AgentUseCase {
 
             @Override
             public List<String> tags() {
-                return agentProperties.workflowPolicyProperties().supportedCapabilities();
+                return agentProperties.workflowPolicy().supportedCapabilities();
             }
 
             @Override
             public String workflowDiagram() {
-                return workflow.diagram("%s Workflow Diagram".formatted(WorkflowId.STANDARD.name()));
+                return workflow.diagram("%s Workflow Diagram".formatted(agentProperties.workflowId().name()));
             }
 
             @Override
@@ -114,11 +108,12 @@ public class AgentService implements AgentUseCase {
                 definition.details().displayName(),
                 definition.details().description(),
                 definition.details().enabled(),
+                definition.workflowId(),
                 definition.chatProperties().providerId(),
                 definition.chatProperties().model(),
                 definition.chatProperties().temperature(),
                 definition.chatProperties().agentPrompt(),
                 definition.chatProperties().memoryEnabled(),
-                definition.workflowPolicyProperties());
+                definition.workflowPolicy());
     }
 }

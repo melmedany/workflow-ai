@@ -14,7 +14,5 @@ public interface AgentUseCase {
 
     void trigger(AgentRequest request, Consumer<WorkflowEvent> eventConsumer);
 
-    List<Agent> getAll();
-
-    String workflowDiagram(UUID id);
+    List<Agent> getEnabledAgents();
 }

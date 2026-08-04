@@ -1,7 +1,8 @@
 TRUNCATE agents CASCADE;
 
-INSERT INTO agents (id, details, chat_properties, workflow_policy_properties)
+INSERT INTO agents (id, workflow_id, details, chat_properties, workflow_policy)
 VALUES ('d60ab6a0-6ef9-4ef4-b9b4-f4d21006dd9a',
+        'STANDARD',
         '{
           "displayName": "Run History Test Agent",
           "description": "Agent for run-history integration testing",

@@ -156,8 +156,9 @@ class ApplicationBeansConfig {
     }
 
     @Bean
-    AgentExecutionService agentAdminService(AgentDefinitionStorage definitions, ChatProviderRegistry providers) {
-        return new AgentExecutionService(definitions, providers);
+    AgentExecutionService agentAdminService(AgentDefinitionStorage definitions, ChatProviderRegistry providers,
+                                            WorkflowExecutorFactory workflowExecutorFactory) {
+        return new AgentExecutionService(definitions, providers, workflowExecutorFactory);
     }
 
     @Bean

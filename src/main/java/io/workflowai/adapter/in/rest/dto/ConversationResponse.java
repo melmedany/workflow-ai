@@ -1,6 +1,5 @@
 package io.workflowai.adapter.in.rest.dto;
 
-import java.io.Serializable;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -9,5 +8,5 @@ public record ConversationResponse(
         UUID agentId,
         String title,
         Instant createdAt,
-        Instant updatedAt) implements Serializable {
+        Instant updatedAt) {
 }

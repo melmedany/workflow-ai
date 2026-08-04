@@ -40,7 +40,7 @@ public class GenerateRedirectStage implements WorkflowStage {
         RoutingDecision decision = state.routingDecision()
                 .orElse(RoutingDecision.redirect("Redirecting mixed-scope request", state.userMessage()));
         String redirect = decisionResponseGenerator.generate(state, StageId.GENERATE_REDIRECT,
-                redirectPrompt(state.systemPrompt(), state.agentProperties().workflowPolicyProperties(), decision));
+                redirectPrompt(state.systemPrompt(), state.agentProperties().workflowPolicy(), decision));
 
         workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.GENERATE_REDIRECT));
         String finalResponse = persistResponseStage.finalizeResponse(state, redirect);

@@ -19,6 +19,7 @@ class AgentAdminEndpointTest extends IntegrationBase {
                 .body("""
                         {
                           "agentId": null,
+                          "workflowId": "STANDARD",
                           "details": {
                             "displayName": "Agent 1",
                             "description": "test agent",
@@ -30,7 +31,7 @@ class AgentAdminEndpointTest extends IntegrationBase {
                             "temperature": 0.4,
                             "memoryEnabled": true
                           },
-                          "workflowPolicyProperties": {
+                          "workflowPolicy": {
                             "supportedCapabilities": ["run tests", "verify criteria"],
                             "fallbackFailedToProcess": "I can't process that right now."
                           }
@@ -52,6 +53,7 @@ class AgentAdminEndpointTest extends IntegrationBase {
                 .body("""
                         {
                           "agentId": "6ca207fa-30be-43f0-b4b3-a7e2a1ea650e",
+                          "workflowId": "STANDARD",
                           "details": {
                             "displayName": "Updated agent name",
                             "description": "test agent",
@@ -63,7 +65,7 @@ class AgentAdminEndpointTest extends IntegrationBase {
                             "temperature": 0.4,
                             "memoryEnabled": true
                           },
-                          "workflowPolicyProperties": {
+                          "workflowPolicy": {
                             "supportedCapabilities": ["run tests", "verify criteria"],
                             "fallbackFailedToProcess": "I can't process that right now."
                           }

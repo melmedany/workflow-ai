@@ -66,7 +66,7 @@ public class SelfVerificationStage implements WorkflowStage {
         String retryPrompt = WorkflowPrompts.retryPrompt(state.userMessage(), state.generatedResponse().orElse(""), state.validationFailureReason());
         ChatCompletionRequest retryRequest = new ChatCompletionRequest(
                 agentProperties.model(), agentProperties.temperature(),
-                withResponseContractInstructions(state.systemPrompt(), agentProperties.workflowPolicyProperties().responseContract()),
+                withResponseContractInstructions(state.systemPrompt(), agentProperties.workflowPolicy().responseContract()),
                 retryPrompt, state.memoryContext());
 
         // Buffered for the same reason as EXECUTE_WORKFLOW: this must be the complete retry text
@@ -75,7 +75,7 @@ public class SelfVerificationStage implements WorkflowStage {
         });
 
         ValidationResult retryValidation = responseValidator
-                .validate(agentProperties.workflowPolicyProperties().responseContract(), retryResponse);
+                .validate(agentProperties.workflowPolicy().responseContract(), retryResponse);
 
         if (retryValidation.valid()) {
             log.debug("[{}] Retry passed validation", agentProperties.id());

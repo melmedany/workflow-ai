@@ -1,15 +1,17 @@
 CREATE TABLE agents
 (
-    id                         UUID PRIMARY KEY NOT NULL,
-    details                    JSONB            NOT NULL,
-    chat_properties             JSONB            NOT NULL,
-    workflow_policy_properties JSONB            NOT NULL,
-    created_at                 TIMESTAMP        NOT NULL DEFAULT now(),
-    updated_at                 TIMESTAMP        NOT NULL DEFAULT now()
+    id              UUID PRIMARY KEY NOT NULL,
+    workflow_id     VARCHAR          NOT NULL,
+    details         JSONB            NOT NULL,
+    chat_properties JSONB            NOT NULL,
+    workflow_policy JSONB            NOT NULL,
+    created_at      TIMESTAMP        NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMP        NOT NULL DEFAULT now()
 );
 
-INSERT INTO agents (id, details, chat_properties, workflow_policy_properties)
+INSERT INTO agents (id, workflow_id, details, chat_properties, workflow_policy)
 VALUES ('2166314d-6e6d-4306-b8cf-c9a53fe70b68',
+        'STANDARD',
         '{
           "displayName": "Roast",
           "description": "Stand-up Comedian Agent",
