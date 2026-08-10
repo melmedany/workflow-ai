@@ -6,6 +6,7 @@ public enum StageId {
     LOAD_MEMORY(false),
     CLASSIFICATION(true),
     EXECUTE_WORKFLOW(true),
+    CREATE_TASK(true),
     GENERATE_CLARIFICATION(true),
     GENERATE_GREETING(true),
     GENERATE_REDIRECT(true),

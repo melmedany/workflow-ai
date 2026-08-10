@@ -27,7 +27,7 @@ class AgentAdminEndpointTest extends IntegrationBase {
                           },
                           "chatProperties": {
                             "providerId": "Ollama",
-                            "model": "deepseek-r1:8b",
+                            "model": "gemma4:26b",
                             "temperature": 0.4,
                             "memoryEnabled": true
                           },
@@ -61,7 +61,7 @@ class AgentAdminEndpointTest extends IntegrationBase {
                           },
                           "chatProperties": {
                             "providerId": "Ollama",
-                            "model": "deepseek-r1:8b",
+                            "model": "gemma4:26b",
                             "temperature": 0.4,
                             "memoryEnabled": true
                           },

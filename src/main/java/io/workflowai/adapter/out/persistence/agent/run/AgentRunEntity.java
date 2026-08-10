@@ -29,8 +29,11 @@ public class AgentRunEntity {
     private UUID conversationId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "trigger_source", nullable = false, length = 30)
+    @Column(name = "trigger_source", nullable = false)
     private TriggerSource triggerSource;
+
+    @Column(name = "task_id")
+    private UUID taskId;
 
     @Column(name = "started_at", nullable = false)
     @CreationTimestamp
@@ -40,7 +43,7 @@ public class AgentRunEntity {
     private Instant completedAt;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false)
     private AgentRunStatus status;
 
     @Column(name = "error_message", columnDefinition = "TEXT")
@@ -49,10 +52,11 @@ public class AgentRunEntity {
     protected AgentRunEntity() {
     }
 
-    public AgentRunEntity(TriggerSource triggerSource, UUID agentId, UUID conversationId) {
+    public AgentRunEntity(TriggerSource triggerSource, UUID agentId, UUID conversationId, UUID taskId) {
         this.triggerSource = triggerSource;
         this.agentId = agentId;
         this.conversationId = conversationId;
+        this.taskId = taskId;
         this.status = AgentRunStatus.RUNNING;
     }
 
@@ -82,6 +86,10 @@ public class AgentRunEntity {
 
     public TriggerSource triggerSource() {
         return this.triggerSource;
+    }
+
+    public UUID taskId() {
+        return this.taskId;
     }
 
     public AgentRunStatus status() {

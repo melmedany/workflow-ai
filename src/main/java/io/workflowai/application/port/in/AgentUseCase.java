@@ -12,7 +12,7 @@ public interface AgentUseCase {
 
     Agent get(UUID id);
 
-    void trigger(AgentRequest request, Consumer<WorkflowEvent> eventConsumer);
+    UUID trigger(AgentRequest request, Consumer<WorkflowEvent> eventConsumer);
 
     List<Agent> getEnabledAgents();
 }

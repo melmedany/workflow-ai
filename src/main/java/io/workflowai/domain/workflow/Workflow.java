@@ -3,10 +3,13 @@ package io.workflowai.domain.workflow;
 import io.workflowai.domain.agent.AgentProperties;
 import io.workflowai.domain.exceptions.WorkflowExecutionException;
 import io.workflowai.domain.agent.TriggerSource;
+import io.workflowai.domain.task.SchedulingIntentDetector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public class Workflow {
@@ -26,14 +29,16 @@ public class Workflow {
         log.debug("Starting workflow execution for agent [{}], conversation [{}], run [{}], model: [{}]",
                 agentProperties.id(), conversationId, runId, agentProperties.model());
 
-        Map<String, Object> initialState = Map.of(
-                WorkflowState.KEY_RUN_ID, runId,
-                WorkflowState.KEY_CONVERSATION_ID, conversationId,
-                WorkflowState.KEY_TRIGGER_SOURCE, triggerSource,
-                WorkflowState.KEY_USER_MESSAGE, message,
-                WorkflowState.KEY_SYSTEM_PROMPT, agentProperties.systemPrompt(),
-                WorkflowState.KEY_AGENT_PROPERTIES, agentProperties
-        );
+        Optional<String> scheduleCommand = SchedulingIntentDetector.extractCommand(message);
+
+        Map<String, Object> initialState = new HashMap<>();
+        initialState.put(WorkflowState.KEY_RUN_ID, runId);
+        initialState.put(WorkflowState.KEY_CONVERSATION_ID, conversationId);
+        initialState.put(WorkflowState.KEY_TRIGGER_SOURCE, triggerSource);
+        initialState.put(WorkflowState.KEY_USER_MESSAGE, scheduleCommand.orElse(message));
+        initialState.put(WorkflowState.KEY_SYSTEM_PROMPT, agentProperties.systemPrompt());
+        initialState.put(WorkflowState.KEY_AGENT_PROPERTIES, agentProperties);
+        initialState.put(WorkflowState.KEY_SCHEDULING_REQUESTED, scheduleCommand.isPresent());
 
         WorkflowExecutionResult result = executor.execute(initialState);
         switch (result.outcome()) {

@@ -22,7 +22,7 @@ public class AgentMemoryEntity {
     @Column(name = "conversation_id", nullable = false)
     private UUID conversationId;
 
-    @Column(name = "agent_id", nullable = false, length = 100)
+    @Column(name = "agent_id", nullable = false)
     private UUID agentId;
 
     @Column(nullable = false, columnDefinition = "TEXT")

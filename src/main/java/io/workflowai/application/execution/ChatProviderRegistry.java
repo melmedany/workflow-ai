@@ -32,7 +32,6 @@ public class ChatProviderRegistry {
                 .collect(Collectors.toMap(ChatProvider::getId, ChatProvider::supportedModels));
     }
 
-    // TODO add more validations
     public void validate(ChatProviderId providerId, String model) {
         ChatProvider provider = get(providerId);
         if (!provider.supportsModel(model)) {

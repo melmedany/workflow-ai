@@ -6,7 +6,7 @@ import io.workflowai.adapter.in.rest.dto.ConversationResponse;
 import io.workflowai.adapter.in.rest.dto.DecisionPayload;
 import io.workflowai.adapter.in.rest.dto.ErrorPayload;
 import io.workflowai.adapter.in.rest.dto.EventType;
-import io.workflowai.adapter.in.rest.dto.Mappers;
+import io.workflowai.adapter.in.rest.dto.AgentMapper;
 import io.workflowai.adapter.in.rest.dto.MessageResponse;
 import io.workflowai.adapter.in.rest.dto.StagePayload;
 import io.workflowai.application.execution.AgentRequest;
@@ -41,8 +41,8 @@ import static io.workflowai.adapter.in.rest.dto.EventType.MEMORY_UPDATED;
 import static io.workflowai.adapter.in.rest.dto.EventType.RESPONSE_COMPLETED;
 import static io.workflowai.adapter.in.rest.dto.EventType.STAGE;
 import static io.workflowai.adapter.in.rest.dto.EventType.TOKEN;
-import static io.workflowai.adapter.in.rest.dto.Mappers.toAgentInfo;
-import static io.workflowai.adapter.in.rest.dto.Mappers.toConversationResponse;
+import static io.workflowai.adapter.in.rest.dto.AgentMapper.toAgentInfo;
+import static io.workflowai.adapter.in.rest.dto.AgentMapper.toConversationResponse;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.COMPLETED;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.FAILED;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.STARTED;
@@ -72,7 +72,7 @@ public class AgentController {
     @GetMapping({"", "/"})
     public ResponseEntity<List<AgentInfo>> getAgents() {
         List<AgentInfo> agents = agentService.getEnabledAgents().stream()
-                .map(Mappers::toAgentInfo)
+                .map(AgentMapper::toAgentInfo)
                 .toList();
         return ResponseEntity.ok(agents);
     }
@@ -85,7 +85,7 @@ public class AgentController {
     @GetMapping("/{agentId}/conversations")
     public ResponseEntity<List<ConversationResponse>> getConversations(@PathVariable UUID agentId) {
         List<ConversationResponse> conversations = conversationService.getConversationsForAgent(agentId).stream()
-                .map(Mappers::toConversationResponse)
+                .map(AgentMapper::toConversationResponse)
                 .toList();
         return ResponseEntity.ok(conversations);
     }
@@ -101,7 +101,7 @@ public class AgentController {
     @GetMapping("/{agentId}/conversations/{conversationId}/messages")
     public ResponseEntity<List<MessageResponse>> getMessages(@PathVariable UUID agentId, @PathVariable UUID conversationId) {
         return ResponseEntity.ok(conversationService.getMessages(agentId, conversationId).stream()
-                .map(Mappers::toMessageResponse)
+                .map(AgentMapper::toMessageResponse)
                 .toList());
     }
 

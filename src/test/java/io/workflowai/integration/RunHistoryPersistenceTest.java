@@ -29,9 +29,9 @@ class DatabaseAgentRunTrackerAdapterTest extends IntegrationBase {
 
     @Test
     void runHistoryPersistsCompletedAndFailedRuns() {
-        UUID completedRunId = agentsRunTracker.start(USER_MESSAGE, AGENT_ID, CONVERSATION_ID);
+        UUID completedRunId = agentsRunTracker.start(USER_MESSAGE, AGENT_ID, CONVERSATION_ID, UUID.randomUUID());
         agentsRunTracker.complete(completedRunId);
-        UUID failedRunId = agentsRunTracker.start(SYSTEM_TRIGGER, AGENT_ID, CONVERSATION_ID);
+        UUID failedRunId = agentsRunTracker.start(SYSTEM_TRIGGER, AGENT_ID, CONVERSATION_ID, UUID.randomUUID());
         agentsRunTracker.fail(failedRunId, "Provider unavailable");
 
         AgentRunEntity completed = run(completedRunId);

@@ -10,7 +10,7 @@ VALUES ('d60ab6a0-6ef9-4ef4-b9b4-f4d21006dd9a',
         }'::jsonb,
         '{
           "providerId": "Ollama",
-          "model": "deepseek-r1:8b",
+          "model": "gemma4:26b",
           "agentPrompt": "",
           "temperature": 0.7,
           "memoryEnabled": false

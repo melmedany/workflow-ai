@@ -33,7 +33,7 @@ public class AgentEntity {
     private AgentDetails details;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "workflow_id", nullable = false, length = 30)
+    @Column(name = "workflow_id", nullable = false)
     private WorkflowId workflowId;
 
     @Column(name = "chat_properties", nullable = false, columnDefinition = "jsonb")

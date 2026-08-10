@@ -34,17 +34,30 @@
     </aside>
 
     <main class="chat-area">
-        <div id="messages" class="messages"></div>
-        <div class="input-area">
-            <textarea
-                id="input"
-                placeholder="Ask something... (Shift+Enter for newline)"
-                rows="3"
-                autofocus></textarea>
-            <button id="send-btn" class="send-btn">Send</button>
-        </div>
+        <nav class="tab-nav" aria-label="Conversation tabs">
+            <a class="tab-link" data-tab="chat" href="#chat">Chat</a>
+            <a class="tab-link" data-tab="tasks" href="#tasks">Tasks</a>
+        </nav>
+
+        <section id="tab-chat" class="tab-panel chat-tab-panel">
+            <div id="messages" class="messages"></div>
+            <div class="input-area">
+                <textarea
+                    id="input"
+                    placeholder="Ask something... (Shift+Enter for newline), or /schedule for a recurring task"
+                    rows="3"
+                    autofocus></textarea>
+                <button id="send-btn" class="send-btn">Send</button>
+            </div>
+        </section>
+
+        <section id="tab-tasks" class="tab-panel hidden">
+            <div id="task-list" class="task-list">Loading tasks...</div>
+        </section>
     </main>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.25.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@date-fns/cdn@4.4.0/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cronstrue@3.24.0/dist/cronstrue-i18n.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.0/marked.min.js"></script>
     <script src="./js/helpers.js"></script>
     <script src="./js/chat.js"></script>

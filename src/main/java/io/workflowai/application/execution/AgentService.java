@@ -1,15 +1,15 @@
 package io.workflowai.application.execution;
 
 import io.workflowai.application.execution.workflow.WorkflowFactory;
-import io.workflowai.domain.workflow.Workflow;
-import io.workflowai.domain.agent.AgentDefinition;
-import io.workflowai.domain.exceptions.AgentNotFoundException;
-import io.workflowai.domain.agent.AgentProperties;
-import io.workflowai.domain.workflow.WorkflowEvent;
 import io.workflowai.application.port.in.AgentUseCase;
 import io.workflowai.application.port.out.AgentDefinitionStorage;
 import io.workflowai.application.port.out.AgentRunTracker;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
+import io.workflowai.domain.agent.AgentDefinition;
+import io.workflowai.domain.agent.AgentProperties;
+import io.workflowai.domain.exceptions.AgentNotFoundException;
+import io.workflowai.domain.workflow.Workflow;
+import io.workflowai.domain.workflow.WorkflowEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,22 +46,23 @@ public class AgentService implements AgentUseCase {
     }
 
     @Override
-    public void trigger(AgentRequest request, Consumer<WorkflowEvent> eventConsumer) {
+    public UUID trigger(AgentRequest request, Consumer<WorkflowEvent> eventConsumer) {
         Agent agent = get(request.agentId());
 
-        UUID runId = agentRunTracker.start(request.triggerSource(), agent.properties().id(), request.conversationId());
+        UUID runId = agentRunTracker.start(request.triggerSource(), agent.properties().id(), request.conversationId(), request.taskId());
         workflowEventStreamer.registerConsumer(runId, eventConsumer);
 
         try {
             agent.execute(runId, request);
             agentRunTracker.complete(runId);
         } catch (Exception ex) {
-            // TODO: better handle workflow exceptions
+            // TODO: handle different workflow exceptions separately instead of one try/catch
             agentRunTracker.fail(runId, ex.getMessage());
             throw ex;
         } finally {
             workflowEventStreamer.revokeConsumer(runId);
         }
+        return runId;
     }
 
     @Override
@@ -71,7 +72,10 @@ public class AgentService implements AgentUseCase {
                 .toList();
     }
 
-    // TODO: created agents can be cached instead of creating them on every request
+    /**
+     * Created agents can be cached instead of creating them on every request. However, that will introduce extra complexity to keep cached agents up to date.
+     * AgentDefinition can be versioned as well to avoid changing the agent in the middle of a request.
+     */
     private Agent createAgent(AgentDefinition definition) {
         AgentProperties agentProperties = toAgentProperties(definition);
         Workflow workflow = workflowFactory.build(agentProperties.workflowId(), agentProperties);

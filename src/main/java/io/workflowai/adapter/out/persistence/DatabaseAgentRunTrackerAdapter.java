@@ -7,6 +7,7 @@ import io.workflowai.application.port.out.AgentRunTracker;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -20,8 +21,8 @@ public class DatabaseAgentRunTrackerAdapter implements AgentRunTracker {
 
     @Override
     @Transactional
-    public UUID start(TriggerSource triggerSource, UUID agentId, UUID conversationId) {
-        return repository.save(new AgentRunEntity(triggerSource, agentId, conversationId)).id();
+    public UUID start(TriggerSource triggerSource, UUID agentId, UUID conversationId, UUID taskId) {
+        return repository.save(new AgentRunEntity(triggerSource, agentId, conversationId, taskId)).id();
     }
 
     @Override
@@ -40,5 +41,11 @@ public class DatabaseAgentRunTrackerAdapter implements AgentRunTracker {
             run.fail(errorMessage);
             repository.save(run);
         });
+    }
+
+    @Override
+    public Optional<AgentRunSummary> find(UUID runId) {
+        return repository.findById(runId)
+                .map(run -> new AgentRunSummary(run.id(), run.status().name(), run.completedAt(), run.errorMessage()));
     }
 }

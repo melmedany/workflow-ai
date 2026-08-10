@@ -5,7 +5,7 @@ import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.conversation.Conversation;
 import io.workflowai.domain.conversation.ConversationMessage;
 
-public class Mappers {
+public class AgentMapper {
     public static AgentInfo toAgentInfo(Agent agent) {
         return new AgentInfo(
                 agent.properties().id(),

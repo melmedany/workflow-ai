@@ -1,8 +1,10 @@
+SET TIME ZONE 'UTC';
+
 CREATE TABLE conversations
 (
     id         UUID PRIMARY KEY NOT NULL,
     agent_id   UUID             NOT NULL,
-    title      VARCHAR(500)     NOT NULL,
+    title      VARCHAR          NOT NULL,
     created_at TIMESTAMP        NOT NULL DEFAULT now(),
     updated_at TIMESTAMP        NOT NULL DEFAULT now(),
     FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE
@@ -13,7 +15,7 @@ CREATE TABLE messages
     id              UUID PRIMARY KEY NOT NULL,
     conversation_id UUID             NOT NULL,
     agent_id        UUID             NOT NULL,
-    role            VARCHAR(20)      NOT NULL,
+    role            VARCHAR          NOT NULL,
     content         TEXT             NOT NULL,
     add_to_memory   BOOLEAN          NOT NULL DEFAULT true,
     created_at      TIMESTAMP        NOT NULL DEFAULT now(),

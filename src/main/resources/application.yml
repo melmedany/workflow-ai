@@ -8,9 +8,19 @@ spring:
     username: workflow-ai
     password: workflow-ai
 
+  flyway:
+    schemas: "public, tasks"
+
   threads:
     virtual:
       enabled: true
+
+jobrunr:
+  background-job-server:
+    enabled: true
+  database:
+    skip-create: true
+    table-prefix: "tasks."
 
 langchain4j:
   providers:
@@ -19,26 +29,22 @@ langchain4j:
       default-model: mistral
       default-temperature: 0.7
       supported-models:
-        - mistral
         - deepseek-r1:8b
         - deepseek-r1:32b
         - deepseek-r1:671b
+        - mistral:latest
         - mistral:7b
-        - devstral:24b
         - mistral-large
         - gemma4:e2b
+        - gemma4:9b
         - gemma4:12b
         - gemma4:26b
-        - qwen3.5:7b
-        - qwen3.6-coder:27b
-        - qwen3.5:122b
-        - llama3.2:3b
-        - llama3.1:8b
-        - llama3.3:70b
+        - qwen3.5:2b
+        - qwen3.5:4b
+        - qwen3.5:9b
+        - qwen3.6:27b
         - phi4:mini
-        - phi5:14b
-        - codellama:7b
-        - starcoder2:15b
+        - phi4:14b
     openai:
       base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
       api-key: ${OPENAI_API_KEY:not-configured}
@@ -79,28 +85,28 @@ workflow-ai:
     stages:
       - stage-id: CLASSIFICATION
         chat-provider-id: Ollama
-        model: llama3.2:3b
-        temperature: 0.2
+        model: gemma4:e2b
+        temperature: 0.1
       - stage-id: GENERATE_CLARIFICATION
         chat-provider-id: Ollama
-        model: llama3.2:3b
-        temperature: 0.2
+        model: gemma4:e2b
+        temperature: 0.1
       - stage-id: GENERATE_REDIRECT
         chat-provider-id: Ollama
-        model: llama3.2:3b
-        temperature: 0.2
+        model: gemma4:e2b
+        temperature: 0.1
       - stage-id: GENERATE_GREETING
         chat-provider-id: Ollama
-        model: llama3.2:3b
-        temperature: 0.2
+        model: gemma4:e2b
+        temperature: 0.1
       - stage-id: GENERATE_REFUSAL
         chat-provider-id: Ollama
-        model: llama3.2:3b
-        temperature: 0.2
+        model: gemma4:e2b
+        temperature: 0.1
       - stage-id: COMPACT_MEMORY
         chat-provider-id: Ollama
-        model: llama3.2:3b
-        temperature: 0.2
+        model: gemma4:e2b
+        temperature: 0.1
   guardrail:
     input-blocked-terms:
       - "ignore previous instructions"

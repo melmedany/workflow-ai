@@ -27,6 +27,7 @@ public class WorkflowState extends AgentState {
     public static final String KEY_VALIDATION_PASSED = "validationPassed";
     public static final String KEY_VALIDATION_FAILURE_REASON = "validationFailureReason";
     public static final String KEY_RETRIED = "retried";
+    public static final String KEY_SCHEDULING_REQUESTED = "schedulingRequested";
 
     /**
      * Constructs an AgentState with the given initial data.
@@ -87,5 +88,9 @@ public class WorkflowState extends AgentState {
 
     public boolean retried() {
         return this.<Boolean>value(KEY_RETRIED).orElse(false);
+    }
+
+    public boolean schedulingRequested() {
+        return this.<Boolean>value(KEY_SCHEDULING_REQUESTED).orElse(false);
     }
 }

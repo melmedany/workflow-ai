@@ -122,8 +122,7 @@ public abstract class AbstractChatProvider implements ChatProvider {
 
             @Override
             public void onCompleteResponse(ChatResponse response) {
-                log.debug("Streaming completed on provider [{}], chars received: {}",
-                        getId(), buffer.length());
+                log.debug("Streaming completed on provider [{}]", getId());
                 latch.countDown();
             }
 

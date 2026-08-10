@@ -10,7 +10,7 @@ VALUES ('af13d6a3-d32f-4dd7-8672-48f81e01e209',
         }'::jsonb,
         '{
           "providerId": "Ollama",
-          "model": "deepseek-r1:8b",
+          "model": "gemma4:26b",
           "agentPrompt": "",
           "temperature": 0.7,
           "memoryEnabled": false
@@ -30,7 +30,7 @@ VALUES ('12e4ede9-b954-4428-96c5-8051bea1c225',
         }'::jsonb,
         '{
           "providerId": "Ollama",
-          "model": "deepseek-r1:8b",
+          "model": "gemma4:26b",
           "agentPrompt": "",
           "temperature": 0.7,
           "memoryEnabled": false

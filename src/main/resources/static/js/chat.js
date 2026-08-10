@@ -1,4 +1,5 @@
 const API_BASE = '/api/agents';
+const TABS = ['chat', 'tasks'];
 const params = new URLSearchParams(window.location.search);
 const agentId = params.get('agentId');
 
@@ -95,6 +96,7 @@ async function navigateTo(id) {
     updateUrl();
     await loadConversations();
     await loadMessages(id);
+    if (currentTab() === 'tasks') await loadTasks();
 }
 
 async function deleteConversation(id) {
@@ -144,6 +146,97 @@ async function loadMessages(conversationId) {
         scrollToBottom();
     } catch (err) {
         messagesEl.innerHTML = '<div class="error-note">Failed to load messages: ' + err.message + '</div>';
+    }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+
+function currentTab() {
+    const hash = location.hash.replace('#', '');
+    return TABS.includes(hash) ? hash : 'chat';
+}
+
+function switchTab(tab) {
+    TABS.forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
+    document.querySelectorAll('.tab-link').forEach(link => link.classList.toggle('active', link.dataset.tab === tab));
+    if (tab === 'tasks') loadTasks();
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────
+
+async function loadTasks() {
+    const container = document.getElementById('task-list');
+    if (!currentConversationId || currentConversationId === 'NEW_CONVERSATION') {
+        container.innerHTML = '<div class="task-item">No conversation selected.</div>';
+        return;
+    }
+
+    try {
+        const tasks = await apiGet(`${agentId}/conversations/${currentConversationId}/tasks`);
+        container.innerHTML = '';
+
+        if (!tasks || tasks.length === 0) {
+            container.innerHTML = '<div class="task-item">No scheduled tasks. Send a message starting with "/schedule" to create one.</div>';
+            return;
+        }
+
+        for (const t of tasks) {
+            container.appendChild(renderTask(t));
+        }
+        if (window.lucide) lucide.createIcons();
+    } catch (err) {
+        container.innerHTML = '<div class="task-item error">Failed to load tasks: ' + err.message + '</div>';
+    }
+}
+
+function renderTask(t) {
+    const item = document.createElement('div');
+    item.className = 'task-item';
+
+    const info = document.createElement('div');
+    info.className = 'task-info';
+    const nextRun = t.nextRunAt ? dateFns.formatRelative(new Date(t.nextRunAt), new Date()) : '—';
+    const lastRun = t.lastRunStatus ? `${t.lastRunStatus}${t.lastRunAt ? ' at ' + dateFns.formatRelative(new Date(t.lastRunAt), new Date()) : ''}` : 'Never run';
+    info.innerHTML = `
+        <div class="task-instruction">${t.name}</div>
+        <div class="task-meta">
+            <span class="task-status-badge task-status-${t.status.toLowerCase()}">${t.status}</span>
+            <span>${t.runOnceAt ? 'Once ' + dateFns.formatRelative(new Date(t.runOnceAt), new Date()) : cronstrue.toString(t.cronExpression)}</span>
+            <span>Next: ${nextRun}</span>
+            <span>Last run: ${lastRun}</span>
+        </div>`;
+
+    const actions = document.createElement('div');
+    actions.className = 'task-actions';
+    if (t.status === 'ACTIVE') {
+        actions.appendChild(taskActionButton('Pause', () => taskAction(t.id, 'pause')));
+    } else if (t.status === 'PAUSED') {
+        actions.appendChild(taskActionButton('Resume', () => taskAction(t.id, 'resume')));
+    }
+    if (t.status !== 'CANCELLED') {
+        actions.appendChild(taskActionButton('Cancel', () => taskAction(t.id, 'cancel')));
+    }
+
+    item.appendChild(info);
+    item.appendChild(actions);
+    return item;
+}
+
+function taskActionButton(label, onClick) {
+    const btn = document.createElement('button');
+    btn.className = 'secondary-btn';
+    btn.textContent = label;
+    btn.onclick = onClick;
+    return btn;
+}
+
+async function taskAction(taskId, action) {
+    try {
+        const res = await fetch(`${API_BASE}/${agentId}/conversations/${currentConversationId}/tasks/${taskId}/${action}`, {method: 'POST'});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        await loadTasks();
+    } catch (err) {
+        alert('Failed to ' + action + ' task: ' + err.message);
     }
 }
 
@@ -269,6 +362,7 @@ async function sendMessage() {
         input.disabled = false;
         btn.disabled = false;
         input.focus();
+        if (currentTab() === 'tasks') loadTasks();
     }
 }
 
@@ -402,6 +496,15 @@ const EventType =  {
 
 // ── Events ────────────────────────────────────────────────────────────────
 
+document.querySelectorAll('.tab-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        location.hash = link.dataset.tab;
+        switchTab(link.dataset.tab);
+    });
+});
+window.addEventListener('hashchange', () => switchTab(currentTab()));
+
 document.getElementById('new-chat-btn').addEventListener('click', () => newConversation());
 document.getElementById('send-btn').addEventListener('click', () => sendMessage());
 document.getElementById('input').addEventListener('keydown', function (e) {
@@ -427,5 +530,6 @@ window.addEventListener('popstate', function () {
 document.addEventListener('DOMContentLoaded', () => {
     if (window.lucide) lucide.createIcons();
     resizeComposer();
+    switchTab(currentTab());
     init();
 });

@@ -30,7 +30,7 @@ public class MessageEntity {
     private UUID agentId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false)
     private ConversationMessageRole role;
 
     @Column(nullable = false, columnDefinition = "TEXT")

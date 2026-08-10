@@ -5,7 +5,7 @@ import io.workflowai.domain.workflow.StageId;
 import java.util.Map;
 
 /**
- * Default label provider for stages to UI. Should be i18n as per request language.
+ * Default label provider for stages to UI. Should be i18n in the presentation layer based on user language.
  */
 public class DefaultStageLabelProvider {
 
@@ -15,6 +15,7 @@ public class DefaultStageLabelProvider {
             Map.entry(StageId.LOAD_MEMORY, "Context prepared"),
             Map.entry(StageId.CLASSIFICATION, "Request classifying"),
             Map.entry(StageId.EXECUTE_WORKFLOW, "Generating response"),
+            Map.entry(StageId.CREATE_TASK, "Scheduling task"),
             Map.entry(StageId.GENERATE_CLARIFICATION, "Preparing clarification"),
             Map.entry(StageId.GENERATE_GREETING, "Preparing greeting"),
             Map.entry(StageId.GENERATE_REDIRECT, "Preparing redirect"),

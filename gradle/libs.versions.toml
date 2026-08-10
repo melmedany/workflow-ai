@@ -5,6 +5,7 @@ langchain4j = "1.16.3"
 langgraph4j = "1.8.19"
 flyway = "12.10.0"
 postgres = "42.7.13"
+jobrunr = "8.8.0"
 junit = "5.14.1"
 restassured = "6.0.0"
 testcontainers = "2.0.5"
@@ -18,6 +19,7 @@ spring-boot-flyway = { group = "org.springframework.boot", name = "spring-boot-s
 spring-boot-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation" }
 spring-boot-test = { group = "org.springframework.boot", name = "spring-boot-starter-test" }
 spring-boot-testcontainers = { group = "org.springframework.boot", name = "spring-boot-testcontainers" }
+spring-boot-jobrunr = { group = "org.jobrunr", name = "jobrunr-spring-boot-4-starter", version.ref = "jobrunr" }
 
 langchain4j-bom = { group = "dev.langchain4j", name = "langchain4j-bom", version.ref = "langchain4j" }
 langchain4j-core = { group = "dev.langchain4j", name = "langchain4j-core" }

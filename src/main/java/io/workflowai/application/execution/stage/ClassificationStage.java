@@ -1,13 +1,13 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.domain.workflow.WorkflowStage;
-import io.workflowai.domain.workflow.WorkflowState;
-import io.workflowai.domain.exceptions.ClassificationException;
 import io.workflowai.application.port.out.ChatCompletionRequest;
+import io.workflowai.application.port.out.WorkflowEventStreamer;
+import io.workflowai.domain.exceptions.ClassificationException;
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.StageId;
-import io.workflowai.application.port.out.WorkflowEventStreamer;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
@@ -15,6 +15,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.List;
 import java.util.Map;
 
+import static io.workflowai.application.execution.stage.StageSettings.StageSetting;
 import static io.workflowai.application.execution.workflow.WorkflowPrompts.CLASSIFICATION_SYSTEM_PROMPT;
 import static io.workflowai.application.execution.workflow.WorkflowPrompts.classificationPrompt;
 
@@ -54,10 +55,11 @@ public class ClassificationStage implements WorkflowStage {
     }
 
     private RoutingDecision performClassification(WorkflowState state) {
-        StageSettings.StageSetting stageProperties = stagesProperties.get(StageId.CLASSIFICATION);
-        String prompt = classificationPrompt(state.agentProperties().id(), state.agentProperties().workflowPolicy(), state.userMessage());
+        StageSetting stageProperties = stagesProperties.get(StageId.CLASSIFICATION);
+        String prompt = classificationPrompt(state.agentProperties().id(), state.agentProperties().workflowPolicy(), state.userMessage(),
+                state.schedulingRequested());
 
-        ChatCompletionRequest classifyRequest = new ChatCompletionRequest(stageProperties.model(), 0.1, CLASSIFICATION_SYSTEM_PROMPT, prompt, "");
+        ChatCompletionRequest classifyRequest = new ChatCompletionRequest(stageProperties.model(), stageProperties.temperature(), CLASSIFICATION_SYSTEM_PROMPT, prompt, "");
         try {
             String jsonResponse = chatProviderRegistry.get(stageProperties.chatProviderId()).call(classifyRequest);
             return parseRoutingDecision(state, jsonResponse);

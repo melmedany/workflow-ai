@@ -20,10 +20,10 @@ public class ConversationEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "agent_id", nullable = false, length = 100)
+    @Column(name = "agent_id", nullable = false)
     private UUID agentId;
 
-    @Column(nullable = false, length = 500)
+    @Column(nullable = false)
     private String title;
 
     @CreationTimestamp

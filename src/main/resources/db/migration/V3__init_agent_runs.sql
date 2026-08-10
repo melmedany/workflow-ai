@@ -1,12 +1,15 @@
+SET TIME ZONE 'UTC';
+
 CREATE TABLE agent_runs
 (
     id              UUID PRIMARY KEY NOT NULL,
     agent_id        UUID             NOT NULL,
-    conversation_id UUID,
-    trigger_source  VARCHAR(30)      NOT NULL,
+    conversation_id UUID             NOT NULL,
+    trigger_source  VARCHAR          NOT NULL,
+    task_id         UUID,
     started_at      TIMESTAMP        NOT NULL DEFAULT now(),
     completed_at    TIMESTAMP,
-    status          VARCHAR(20)      NOT NULL,
+    status          VARCHAR          NOT NULL,
     error_message   TEXT
 --  Foreign keys for agent_id and conversation_id was not added deliberately to avoid agent runs deletion on agent or conversation deletion
 );

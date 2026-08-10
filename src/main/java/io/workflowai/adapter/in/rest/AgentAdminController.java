@@ -1,7 +1,7 @@
 package io.workflowai.adapter.in.rest;
 
 import io.workflowai.adapter.in.rest.dto.AgentSummaryDto;
-import io.workflowai.adapter.in.rest.dto.Mappers;
+import io.workflowai.adapter.in.rest.dto.AgentMapper;
 import io.workflowai.application.port.in.AgentAdminUseCase;
 import io.workflowai.application.port.in.AgentUseCase;
 import io.workflowai.domain.agent.AgentDefinition;
@@ -43,7 +43,7 @@ public class AgentAdminController {
     @GetMapping({"", "/"})
     public ResponseEntity<List<AgentSummaryDto>> getAgents() {
         return ResponseEntity.ok(agentAdminUseCase.getAllDefinitions().stream()
-                .map(Mappers::toAgentSummary)
+                .map(AgentMapper::toAgentSummary)
                 .toList());
     }
 

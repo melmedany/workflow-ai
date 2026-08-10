@@ -2,11 +2,13 @@ package io.workflowai.bootstrap.config;
 
 import io.workflowai.application.agent.AgentExecutionService;
 import io.workflowai.application.conversation.ConversationService;
-import io.workflowai.application.execution.ChatProviderRegistry;
 import io.workflowai.application.execution.AgentService;
+import io.workflowai.application.execution.ChatProviderRegistry;
+import io.workflowai.application.execution.ResponseValidator;
 import io.workflowai.application.execution.stage.ClassificationStage;
 import io.workflowai.application.execution.stage.CompactMemoryStage;
 import io.workflowai.application.execution.stage.CompleteStage;
+import io.workflowai.application.execution.stage.CreateTaskStage;
 import io.workflowai.application.execution.stage.DecisionResponseGenerator;
 import io.workflowai.application.execution.stage.ExecuteWorkflowStage;
 import io.workflowai.application.execution.stage.GenerateClarificationStage;
@@ -16,18 +18,21 @@ import io.workflowai.application.execution.stage.GenerateRefusalStage;
 import io.workflowai.application.execution.stage.LoadMemoryStage;
 import io.workflowai.application.execution.stage.PersistResponseStage;
 import io.workflowai.application.execution.stage.PersistUserMessageStage;
-import io.workflowai.application.execution.ResponseValidator;
 import io.workflowai.application.execution.stage.SelfVerificationStage;
 import io.workflowai.application.execution.stage.StageSettings;
 import io.workflowai.application.execution.workflow.WorkflowFactory;
+import io.workflowai.application.port.in.TaskUseCase;
 import io.workflowai.application.port.out.AgentDefinitionStorage;
 import io.workflowai.application.port.out.AgentMemoryStorage;
 import io.workflowai.application.port.out.AgentRunTracker;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.application.port.out.ConversationMessageStorage;
 import io.workflowai.application.port.out.ConversationStorage;
+import io.workflowai.application.port.out.ConversationTaskStorage;
 import io.workflowai.application.port.out.NotificationChannel;
+import io.workflowai.application.port.out.TaskScheduler;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
+import io.workflowai.application.task.TaskService;
 import io.workflowai.bootstrap.StagesProperties;
 import io.workflowai.domain.workflow.WorkflowExecutorFactory;
 import io.workflowai.domain.workflow.WorkflowStage;
@@ -83,6 +88,17 @@ class ApplicationBeansConfig {
     @Bean
     PersistResponseStage persistResponseStage(ConversationMessageStorage conversationMessageStorage, List<WorkflowEventStreamer> streamers) {
         return new PersistResponseStage(conversationMessageStorage, streamers);
+    }
+
+    @Bean
+    TaskService taskService(ConversationTaskStorage storage, TaskScheduler scheduler) {
+        return new TaskService(storage, scheduler);
+    }
+
+    @Bean
+    CreateTaskStage createTaskStage(TaskUseCase taskUseCase, PersistResponseStage persistResponseStage,
+                                    List<WorkflowEventStreamer> streamers) {
+        return new CreateTaskStage(taskUseCase, persistResponseStage, streamers);
     }
 
     @Bean
