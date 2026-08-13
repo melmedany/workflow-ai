@@ -7,23 +7,24 @@ Prerequisites, layout, and how to run Workflow AI and its tests. For what the ap
 
 ## Technologies / Tools
 
-| Tool                        | Version         |                                                                                                      |
-|-----------------------------|-----------------|------------------------------------------------------------------------------------------------------|
-| Java                        | 25              | Main programming language                                                                            |
-| Spring Boot                 | 4.1.0           | Wiring, REST, validation, JPA, configuration properties.                                             |
-| LangChain4j                 | 1.16.3          | Per-provider chat and streaming chat models, plus the `InputGuardrail`/`OutputGuardrail` interfaces. |
-| LangGraph4j                 | 1.8.19          | Compiles the stage graph and executes it, and provides it as Mermaid diagram.                        |
-| JobRunr                     | 8.8.0           | Recurring and one-off scheduling for conversation tasks, behind the `TaskScheduler` port.            |
-| PostgreSQL                  | 16              | Single store for agents, conversations, messages, memory, run history and tasks.                     |
-| Flyway                      | 12.10.0         | Owns the schema, including JobRunr's tables. Migrations stay the only source of truth.               |
-| Spring Data JPA             | via Spring Boot | Entities and repositories, used only inside `adapter.out.persistence` pacakge.                       |
-| Jackson 3 (`tools.jackson`) | via Spring Boot | API serialisation and parsing the classifier's JSON output.                                          |
-| JUnit 5                     | 5.14.1          | Test runtime.                                                                                        |
-| Testcontainers              | 2.0.5           | Integration tests run against a real PostgreSQL 16 container.                                        |
-| REST Assured                | 6.0.0           | Endpoint tests over real HTTP, including reading the SSE stream.                                     |
-| ArchUnit                    | 1.4.2           | The hexagonal boundaries are asserted as tests, not documented as conventions.                       |
-| Gradle (Kotlin DSL)         | wrapper         | Version catalog in `gradle/libs.versions.toml`; configuration cache enabled.                         |
-| Frontend                    | none            | Simple and plain HTML, CSS and JavaScript with no build step.                                        |
+| Tool                        |                                                                                                      |
+|-----------------------------|------------------------------------------------------------------------------------------------------|
+| Java 25+                    | Main programming language                                                                            |
+| Spring Boot                 | Wiring, REST, validation, JPA, configuration properties.                                             |
+| LangChain4j                 | Per-provider chat and streaming chat models, plus the `InputGuardrail`/`OutputGuardrail` interfaces. |
+| LangGraph4j                 | Compiles the stage graph and executes it, and provides it as Mermaid diagram.                        |
+| JobRunr                     | Recurring and one-off scheduling for conversation tasks, behind the `TaskScheduler` port.            |
+| PostgreSQL                  | Single store for agents, conversations, messages, memory, run history and tasks.                     |
+| Flyway                      | Owns the schema, including JobRunr's tables. Migrations stay the only source of truth.               |
+| Spring Data JPA             | Entities and repositories, used only inside `adapter.out.persistence` pacakge.                       |
+| Jackson 3 (`tools.jackson`) | API serialisation and parsing the classifier's JSON output.                                          |
+| JUnit 6                     | Test runtime.                                                                                        |
+| Mockito                     | Mocking framework.                                                                                   |
+| Testcontainers              | Integration tests run against a real PostgreSQL 16 container.                                        |
+| REST Assured                | Endpoint tests over real HTTP, including reading the SSE stream.                                     |
+| ArchUnit                    | The hexagonal boundaries are asserted as tests, not documented as conventions.                       |
+| Gradle (Kotlin DSL)         | Version catalog in `gradle/libs.versions.toml`; configuration cache enabled.                         |
+| Frontend                    | Simple and plain HTML, CSS and JavaScript with no build step.                                        |
 
 ---
 
@@ -53,7 +54,7 @@ src/main/java/io/workflowai
 │       ├── scheduling                  JobRunr scheduler adapter, scheduled task runner
 │       └── stream                      SSE workflow event streamer, stage labels
 ├── application
-│   ├── agent                           AgentExecutionService (admin use case)
+│   ├── agent                           AgentDefinitionService (admin use case)
 │   ├── conversation                    ConversationService
 │   ├── execution                       Agent, AgentRequest, AgentService, ChatProviderRegistry, ResponseValidator
 │   │   ├── stage                       one class per workflow stage, plus shared response helpers
@@ -103,7 +104,7 @@ Flyway owns every table. `spring.flyway.schemas` is `public, tasks`, so the `tas
 | `agents`             | Agent definitions, with `details`, `chat_properties` and `workflow_policy` stored as JSONB. V1 seeds one agent. |
 | `conversations`      | One row per conversation, owned by an agent. Cascades on agent delete.                                          |
 | `messages`           | User and agent messages, with an `add_to_memory` flag. Cascades on conversation delete.                         |
-| `agent_memory`       | One compact memory blob per `(conversation_id, agent_id)`, unique on that pair.                                 |
+| `agent_memory`       | One compact memory blob per `(conversation_id, agent_id)`.                                                      |
 | `agent_runs`         | One row per workflow execution.                                                                                 |
 | `conversation_tasks` | Scheduled tasks.                                                                                                |
 | `tasks.jobrunr_*`    | JobRunr's own job.                                                                                              |
@@ -112,12 +113,12 @@ Flyway owns every table. `spring.flyway.schemas` is `public, tasks`, so the `tas
 
 ## Prerequisites
 
-- **JDK 25.**
+- **JDK 25+.**
 - **Docker.** Used for the PostgreSQL container in development and by Testcontainers during tests.
 - **A model provider.** At least one of:
     - **Ollama** running locally, with the models you configure already pulled. This is the default: the seeded agent
-      uses `gemma4:26b` and every workflow stage uses `gemma4:e2b`. `OllamaProvider` checks `/api/tags` before each call
-      and fails with the exact `ollama pull …` command when a model is missing.
+      uses `gemma4:26b` and every workflow stage uses `llama3.2:3b`. `OllamaProvider` checks `/api/tags` on the first
+      call and fails with the exact `ollama pull …` command when a model is missing.
     - **OpenAI**, **Anthropic** or **Bonzai**, configured by environment variable.
 
 Environment variables, all optional and all with defaults in `application.yml`:
@@ -128,7 +129,7 @@ OPENAI_BASE_URL       default https://api.openai.com/v1
 OPENAI_API_KEY        default not-configured
 ANTHROPIC_BASE_URL    default not-configured
 ANTHROPIC_API_KEY     default not-configured
-BONZAI_BASE_URL       default https://api-v2.bonzai.iodigital.com
+BONZAI_BASE_URL       default not-configured
 BONZAI_API_KEY        default not-configured
 ```
 

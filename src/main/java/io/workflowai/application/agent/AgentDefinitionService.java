@@ -1,14 +1,14 @@
 package io.workflowai.application.agent;
 
-import io.workflowai.domain.exceptions.AgentNotFoundException;
-import io.workflowai.domain.exceptions.AgentValidationException;
-import io.workflowai.domain.exceptions.ChatProviderException;
+import io.workflowai.application.execution.ChatProviderRegistry;
+import io.workflowai.application.port.in.AgentDefinitionUseCase;
+import io.workflowai.application.port.in.AgentUseCase;
+import io.workflowai.application.port.out.AgentDefinitionStorage;
 import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.agent.ChatProviderId;
+import io.workflowai.domain.exceptions.AgentValidationException;
+import io.workflowai.domain.exceptions.ChatProviderException;
 import io.workflowai.domain.workflow.WorkflowExecutorFactory;
-import io.workflowai.application.port.in.AgentAdminUseCase;
-import io.workflowai.application.port.out.AgentDefinitionStorage;
-import io.workflowai.application.execution.ChatProviderRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,16 +16,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public class AgentExecutionService implements AgentAdminUseCase {
+public class AgentDefinitionService implements AgentDefinitionUseCase {
     private final AgentDefinitionStorage storagePort;
     private final ChatProviderRegistry chatProviderRegistry;
     private final WorkflowExecutorFactory workflowExecutorFactory;
+    private final AgentUseCase agentService;
 
-    public AgentExecutionService(AgentDefinitionStorage storagePort, ChatProviderRegistry chatProviderRegistry,
-                                  WorkflowExecutorFactory workflowExecutorFactory) {
+    public AgentDefinitionService(AgentDefinitionStorage storagePort, ChatProviderRegistry chatProviderRegistry,
+                                  WorkflowExecutorFactory workflowExecutorFactory, AgentUseCase agentService) {
         this.storagePort = storagePort;
         this.chatProviderRegistry = chatProviderRegistry;
         this.workflowExecutorFactory = workflowExecutorFactory;
+        this.agentService = agentService;
     }
 
     @Override
@@ -40,7 +42,7 @@ public class AgentExecutionService implements AgentAdminUseCase {
 
     @Override
     public AgentDefinition getDefinition(UUID agentId) {
-        return storagePort.findById(agentId).orElseThrow(() -> new AgentNotFoundException(agentId));
+        return storagePort.findById(agentId);
     }
 
     @Override
@@ -72,6 +74,7 @@ public class AgentExecutionService implements AgentAdminUseCase {
 
     @Override
     public void deleteDefinition(UUID agentId) {
+        agentService.remove(agentId);
         storagePort.delete(agentId);
     }
 }

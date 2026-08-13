@@ -7,11 +7,14 @@ import io.workflowai.domain.exceptions.TaskNotFoundException;
 import io.workflowai.domain.task.ConversationTask;
 import io.workflowai.domain.task.ConversationTask.TaskDefinition;
 import io.workflowai.domain.task.TaskStatus;
+import org.jobrunr.storage.JobNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -19,8 +22,11 @@ import java.util.UUID;
 
 import static io.workflowai.domain.task.ConversationTask.TaskRunInfo;
 import static io.workflowai.domain.task.ConversationTask.TaskSchedule;
+import static io.workflowai.domain.task.ConversationTask.TaskSchedule.ScheduleType;
 
 public class TaskService implements TaskUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(TaskService.class);
 
     private final ConversationTaskStorage storage;
     private final TaskScheduler scheduler;
@@ -31,11 +37,10 @@ public class TaskService implements TaskUseCase {
     }
 
     @Override
-    public ConversationTask createOrUpdate(UUID agentId, UUID conversationId, String instruction,
-                                           String cronExpression, Instant runOnceAt) {
+    public ConversationTask createOrUpdate(UUID agentId, UUID conversationId, String instruction, ScheduleType scheduleType, Duration duration) {
         List<ConversationTask> tasks = storage.findByConversation(agentId, conversationId);
         if (tasks.isEmpty()) {
-            return create(agentId, conversationId, instruction, cronExpression, runOnceAt);
+            return create(agentId, conversationId, instruction, scheduleType, duration);
         }
 
         String intentKey = intentKey(instruction);
@@ -45,56 +50,79 @@ public class TaskService implements TaskUseCase {
                 .orElse(null);
 
         if (matchingTask == null) {
-            return create(agentId, conversationId, instruction, cronExpression, runOnceAt);
+            return create(agentId, conversationId, instruction, scheduleType, duration);
         } else {
-            return update(matchingTask, instruction, cronExpression, runOnceAt);
+            return update(matchingTask, instruction, duration);
         }
     }
 
     private ConversationTask create(UUID agentId, UUID conversationId, String instruction,
-                                           String cronExpression, Instant runOnceAt) {
+                                    ScheduleType scheduleType, Duration duration) {
         String intentKey = intentKey(instruction);
 
-        TaskDefinition definition = new TaskDefinition(instruction, intentKey, instruction); // using instruction as an initial name
-        TaskSchedule schedule = new TaskSchedule(cronExpression, runOnceAt, TaskStatus.ACTIVE);
-        TaskRunInfo runInfo = new TaskRunInfo(null, null);
+        TaskDefinition definition = new TaskDefinition(instruction, intentKey, instruction); // using instruction as an initial task name
+        TaskSchedule schedule = new TaskSchedule(scheduleType, duration, TaskStatus.ACTIVE);
+        TaskRunInfo runInfo = new TaskRunInfo(null,null, null);
 
         ConversationTask task = storage.create(ConversationTask.newTask(agentId, conversationId, definition, schedule, runInfo));
-        scheduler.schedule(task);
+        String jobId = scheduler.schedule(task);
+        storage.updateJobId(agentId, conversationId, task.id(), jobId);
 
-        return task;
+        return task.withJobId(jobId);
     }
 
+    private ConversationTask update(ConversationTask existingTask, String instruction, Duration duration) {
+        ConversationTask updatedTask = storage.update(existingTask.update(instruction, duration));
+        String jobId = scheduler.reschedule(updatedTask);
+        storage.updateJobId(updatedTask.agentId(), updatedTask.conversationId(), updatedTask.id(), jobId);
 
-    private ConversationTask update(ConversationTask existingTask, String instruction, String cronExpression, Instant runOnceAt) {
-        ConversationTask updatedTask = storage.update(existingTask.update(instruction, cronExpression, runOnceAt));
-        scheduler.reschedule(updatedTask);
-
-        return updatedTask;
-    }
-
-    @Override
-    public void pause(UUID taskId) {
-        storage.updateStatus(taskId, TaskStatus.PAUSED);
-        scheduler.pause(taskId);
+        return storage.update(updatedTask.withJobId(jobId));
     }
 
     @Override
-    public void resume(UUID taskId) {
-        ConversationTask task = storage.findById(taskId).orElseThrow(() -> new TaskNotFoundException(taskId));
-        storage.updateStatus(taskId, TaskStatus.ACTIVE);
+    public void pause(UUID agentId, UUID conversationId, UUID taskId) {
+        ConversationTask task = findTask(agentId, conversationId, taskId);
+        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.PAUSED);
+        scheduler.pause(task);
+    }
+
+    @Override
+    public void resume(UUID agentId, UUID conversationId, UUID taskId) {
+        ConversationTask task = findTask(agentId, conversationId, taskId);
+        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE);
         scheduler.resume(task.withStatus(TaskStatus.ACTIVE));
     }
 
     @Override
-    public void cancel(UUID taskId) {
-        storage.updateStatus(taskId, TaskStatus.CANCELLED);
-        scheduler.cancel(taskId);
+    public void cancel(UUID agentId, UUID conversationId, UUID taskId) {
+        ConversationTask task = findTask(agentId, conversationId, taskId);
+        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.CANCELLED);
+        scheduler.cancel(task);
+    }
+
+    @Override
+    public void cancelAll(UUID agentId, UUID conversationId) {
+        List<ConversationTask> tasks = storage.findByConversation(agentId, conversationId);
+
+        for (ConversationTask task : tasks) {
+            try {
+                cancel(agentId, conversationId, task.id());
+                log.debug("Cancelled task {} - jobId {}", task.id(), task.runInfo().jobId());
+            } catch (JobNotFoundException ex) {
+                log.warn("Failed to cancel task {}", task.id(), ex);
+            }
+        }
+
     }
 
     @Override
     public List<ConversationTask> listByConversation(UUID agentId, UUID conversationId) {
         return storage.findByConversation(agentId, conversationId);
+    }
+
+    private ConversationTask findTask(UUID agentId, UUID conversationId, UUID taskId) {
+        return storage.findTask(agentId, conversationId, taskId)
+                .orElseThrow(() -> new TaskNotFoundException(taskId));
     }
 
     private static String intentKey(String instruction) {

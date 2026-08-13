@@ -4,12 +4,12 @@ import io.restassured.http.ContentType;
 import io.workflowai.adapter.in.rest.dto.ConversationResponse;
 import io.workflowai.adapter.in.rest.dto.EventType;
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.domain.agent.ChatProviderId;
-import io.workflowai.domain.conversation.ConversationMessage;
-import io.workflowai.domain.conversation.ConversationMessageRole;
 import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.application.port.out.ConversationMessageStorage;
+import io.workflowai.domain.agent.ChatProviderId;
+import io.workflowai.domain.conversation.ConversationMessage;
+import io.workflowai.domain.conversation.ConversationMessageRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,15 +19,17 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 import static io.restassured.RestAssured.given;
+import static io.workflowai.domain.agent.ChatProviderId.Ollama;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @Sql
@@ -50,7 +52,7 @@ class ChatEndpointTest extends IntegrationBase {
         ChatProvider ollama = new ChatProvider() {
             @Override
             public ChatProviderId getId() {
-                return ChatProviderId.Ollama;
+                return Ollama;
             }
 
             @Override
@@ -75,8 +77,8 @@ class ChatEndpointTest extends IntegrationBase {
                 return java.util.Set.of();
             }
         };
-        when(chatProviderRegistry.get(any())).thenReturn(ollama);
-        when(chatProviderRegistry.supportedChatProviders()).thenReturn(java.util.Map.of(ChatProviderId.Ollama, java.util.Set.of()));
+        when(chatProviderRegistry.get(Ollama)).thenReturn(ollama);
+        when(chatProviderRegistry.supportedChatProviders()).thenReturn(Map.of(Ollama, Set.of()));
     }
 
     @Test

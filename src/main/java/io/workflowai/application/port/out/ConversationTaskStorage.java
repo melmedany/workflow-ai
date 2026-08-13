@@ -9,15 +9,17 @@ import java.util.UUID;
 
 public interface ConversationTaskStorage {
 
-    ConversationTask create(ConversationTask candidate);
+    ConversationTask create(ConversationTask task);
 
-    ConversationTask update(ConversationTask candidate);
+    ConversationTask update(ConversationTask task);
 
-    Optional<ConversationTask> findById(UUID taskId);
+    Optional<ConversationTask> findTask(UUID agentId, UUID conversationId, UUID taskId);
 
     List<ConversationTask> findByConversation(UUID agentId, UUID conversationId);
 
-    void updateStatus(UUID taskId, TaskStatus status);
+    void updateStatus(UUID agentId, UUID conversationId, UUID taskId, TaskStatus status);
 
-    void updateAfterRun(UUID taskId, UUID lastRunId);
+    void updateJobId(UUID agentId, UUID conversationId, UUID taskId, String jobId);
+
+    void updateAfterRun(UUID agentId, UUID conversationId, UUID taskId, UUID lastRunId);
 }

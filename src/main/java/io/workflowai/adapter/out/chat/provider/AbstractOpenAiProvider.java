@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Shared base for OpenAI-compatible third-party providers (e.g. bonzai) using custom base URLs.
+ * Shared base for OpenAI-compatible third-party chat providers (e.g. bonzai) using custom base URLs.
  */
 public abstract class AbstractOpenAiProvider extends AbstractChatProvider {
 
@@ -51,12 +51,12 @@ public abstract class AbstractOpenAiProvider extends AbstractChatProvider {
     public String call(ChatCompletionRequest request) {
         String resolvedModel = resolveModel(request.model(), this.defaultModel);
         List<ChatMessage> messages = buildMessages(request);
-        ChatModel chat = resolvedModel.equals(this.defaultModel)
+        ChatModel chatModel = resolvedModel.equals(this.defaultModel)
                 ? getDefaultChatModel(this.defaultModel, this.defaultTemperature)
                 : buildChatModel(resolvedModel, request.temperature());
         log.debug("Calling {} model [{}]", getId(), resolvedModel);
         try {
-            return extractText(chat.chat(messages));
+            return extractText(chatModel.chat(messages));
         } catch (Exception ex) {
             throw new ChatProviderCallException(getId(), "Sync call failed for model [%s]".formatted(resolvedModel), ex);
         }
@@ -64,21 +64,33 @@ public abstract class AbstractOpenAiProvider extends AbstractChatProvider {
 
     @Override
     protected ChatModel buildChatModel(String model, double temperature) {
-        return OpenAiChatModel.builder()
+        if (chatModelMap.containsKey(model)) return chatModelMap.get(model);
+
+        ChatModel chatModel = OpenAiChatModel.builder()
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .modelName(model)
                 .temperature(temperature)
                 .build();
+
+        chatModelMap.put(model, chatModel);
+
+        return chatModel;
     }
 
     @Override
     protected StreamingChatModel buildStreamingModel(String model, double temperature) {
-        return OpenAiStreamingChatModel.builder()
+        if (streamingChatModelMap.containsKey(model)) return streamingChatModelMap.get(model);
+
+        StreamingChatModel streamingChatModel = OpenAiStreamingChatModel.builder()
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .modelName(model)
                 .temperature(temperature)
                 .build();
+
+        streamingChatModelMap.put(model, streamingChatModel);
+
+        return streamingChatModel;
     }
 }

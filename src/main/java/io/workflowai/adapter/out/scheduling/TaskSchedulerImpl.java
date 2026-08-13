@@ -2,10 +2,10 @@ package io.workflowai.adapter.out.scheduling;
 
 import io.workflowai.application.port.out.TaskScheduler;
 import io.workflowai.domain.task.ConversationTask;
-import org.jobrunr.scheduling.BackgroundJob;
 import org.jobrunr.scheduling.JobScheduler;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -18,29 +18,32 @@ public class TaskSchedulerImpl implements TaskScheduler {
     }
 
     @Override
-    public void schedule(ConversationTask task) {
-        if (task.schedule().runOnceAt() != null) {
-            jobScheduler.<ScheduledAgentTaskRunner>schedule(
+    public String schedule(ConversationTask task) {
+        Instant scheduleAt = task.createdAt() != null ? task.createdAt().plus(task.schedule().duration()) :
+                Instant.now().plus(task.schedule().duration());
+
+        if (task.runOnce()) {
+            return jobScheduler.<ScheduledAgentTaskRunner>schedule(
                     task.id(),
-                    task.schedule().runOnceAt(),
-                    runner -> runner.run(task.id()));
-            return;
+                    scheduleAt,
+                    runner -> runner.run(task.agentId(), task.conversationId(), task.id()))
+                    .asUUID().toString();
         }
 
-        jobScheduler.<ScheduledAgentTaskRunner>scheduleRecurrently(
+        return jobScheduler.<ScheduledAgentTaskRunner>scheduleRecurrently(
                 task.id().toString(),
-                task.schedule().cronExpression(),
-                runner -> runner.run(task.id()));
+                task.schedule().duration(),
+                runner -> runner.run(task.agentId(), task.conversationId(), task.id()));
     }
 
     @Override
-    public void reschedule(ConversationTask task) {
-        schedule(task);
+    public String reschedule(ConversationTask task) {
+        return schedule(task);
     }
 
     @Override
-    public void pause(UUID taskId) {
-        BackgroundJob.deleteRecurringJob(taskId.toString());
+    public void pause(ConversationTask task) {
+        cancel(task);
     }
 
     @Override
@@ -49,7 +52,11 @@ public class TaskSchedulerImpl implements TaskScheduler {
     }
 
     @Override
-    public void cancel(UUID taskId) {
-        BackgroundJob.deleteRecurringJob(taskId.toString());
+    public void cancel(ConversationTask task) {
+        if (task.runOnce()) {
+            jobScheduler.delete(UUID.fromString(task.runInfo().jobId()));
+        } else {
+            jobScheduler.deleteRecurringJob(task.runInfo().jobId());
+        }
     }
 }

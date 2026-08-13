@@ -35,20 +35,20 @@ public class TaskController {
 
     @PostMapping("/{agentId}/conversations/{conversationId}/tasks/{taskId}/pause")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void pause(@PathVariable UUID agentId, @PathVariable String conversationId, @PathVariable UUID taskId) {
-        taskUseCase.pause(taskId);
+    public void pause(@PathVariable UUID agentId, @PathVariable UUID conversationId, @PathVariable UUID taskId) {
+        taskUseCase.pause(agentId, conversationId, taskId);
     }
 
     @PostMapping("/{agentId}/conversations/{conversationId}/tasks/{taskId}/resume")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void resume(@PathVariable UUID agentId, @PathVariable String conversationId, @PathVariable UUID taskId) {
-        taskUseCase.resume(taskId);
+    public void resume(@PathVariable UUID agentId, @PathVariable UUID conversationId, @PathVariable UUID taskId) {
+        taskUseCase.resume(agentId, conversationId, taskId);
     }
 
     @PostMapping("/{agentId}/conversations/{conversationId}/tasks/{taskId}/cancel")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void cancel(@PathVariable UUID agentId, @PathVariable String conversationId, @PathVariable UUID taskId) {
-        taskUseCase.cancel(taskId);
+    public void cancel(@PathVariable UUID agentId, @PathVariable UUID conversationId, @PathVariable UUID taskId) {
+        taskUseCase.cancel(agentId, conversationId, taskId);
     }
 
     private TaskResponse toResponse(ConversationTask task) {
@@ -57,8 +57,8 @@ public class TaskController {
                 task.agentId(),
                 task.conversationId(),
                 task.definition().name(),
-                task.schedule().cronExpression(),
-                task.schedule().runOnceAt(),
+                task.schedule().type().name(),
+                task.schedule().duration(),
                 task.schedule().status().name(),
                 task.runInfo().lastRunAt(),
                 task.runInfo().lastRunStatus(),

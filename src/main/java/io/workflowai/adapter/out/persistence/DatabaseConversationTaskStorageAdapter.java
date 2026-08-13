@@ -15,9 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static io.workflowai.domain.task.ConversationTask.TaskDefinition;
 import static io.workflowai.domain.task.ConversationTask.TaskRunInfo;
-import static io.workflowai.domain.task.ConversationTask.TaskSchedule;
 
 @Service
 public class DatabaseConversationTaskStorageAdapter implements ConversationTaskStorage {
@@ -34,22 +32,23 @@ public class DatabaseConversationTaskStorageAdapter implements ConversationTaskS
     @Override
     @Transactional
     public ConversationTask create(ConversationTask task) {
-        ConversationTaskEntity entity = new ConversationTaskEntity(task.agentId(), task.conversationId(), task.definition().name(),
-                task.definition().intentKey(), task.definition().instruction(), task.schedule().cronExpression(), task.schedule().runOnceAt());
+        ConversationTaskEntity entity = new ConversationTaskEntity(task.agentId(), task.conversationId(),
+                task.definition(), task.schedule());
         return toDomain(taskRepository.save(entity));
     }
 
     @Override
     @Transactional
     public ConversationTask update(ConversationTask task) {
-        ConversationTaskEntity existing = taskRepository.findByIntentKey(task.definition().intentKey())
+        ConversationTaskEntity existing = taskRepository.findTaskToUpdate(
+                        task.agentId(), task.conversationId(), task.definition().intentKey())
                 .orElseThrow(() -> new TaskNotFoundException(task.id()));
-        existing.update(task.definition().instruction(), task.schedule().cronExpression(), task.schedule().runOnceAt());
+        existing.update(task.definition().instruction(), task.schedule().duration());
         return toDomain(taskRepository.save(existing));
     }
 
     @Override
-    public Optional<ConversationTask> findById(UUID taskId) {
+    public Optional<ConversationTask> findTask(UUID agentId, UUID conversationId, UUID taskId) {
         return taskRepository.findById(taskId).map(this::toDomain);
     }
 
@@ -62,7 +61,7 @@ public class DatabaseConversationTaskStorageAdapter implements ConversationTaskS
 
     @Override
     @Transactional
-    public void updateStatus(UUID taskId, TaskStatus status) {
+    public void updateStatus(UUID agentId, UUID conversationId, UUID taskId, TaskStatus status) {
         ConversationTaskEntity entity = taskRepository.findById(taskId).orElseThrow(() -> new TaskNotFoundException(taskId));
         entity.updateStatus(status);
         taskRepository.save(entity);
@@ -70,25 +69,31 @@ public class DatabaseConversationTaskStorageAdapter implements ConversationTaskS
 
     @Override
     @Transactional
-    public void updateAfterRun(UUID taskId, UUID lastRunId) {
+    public void updateJobId(UUID agentId, UUID conversationId, UUID taskId, String jobId) {
+        ConversationTaskEntity entity = taskRepository.findById(taskId).orElseThrow(() -> new TaskNotFoundException(taskId));
+        entity.updateJobId(jobId);
+        taskRepository.save(entity);
+    }
+
+    @Override
+    @Transactional
+    public void updateAfterRun(UUID agentId, UUID conversationId, UUID taskId, UUID lastRunId) {
         ConversationTaskEntity entity = taskRepository.findById(taskId).orElseThrow(() -> new TaskNotFoundException(taskId));
         entity.recordRun(lastRunId);
         taskRepository.save(entity);
     }
 
     private ConversationTask toDomain(ConversationTaskEntity task) {
-        TaskDefinition definition = new TaskDefinition(task.name(), task.intentKey(), task.instruction());
-        TaskSchedule schedule = new TaskSchedule(task.cronExpression(), task.runOnceAt(), task.status());
-
         AgentRunSummary lastRun = task.lastRunId() != null ?
                 agentRunTracker.find(task.lastRunId()).orElse(null)
                 : null;
 
         TaskRunInfo runInfo = new TaskRunInfo(
+                task.jobId(),
                 lastRun != null && lastRun.completedAt() != null ? lastRun.completedAt() : null,
                 lastRun != null && lastRun.status() != null ? lastRun.status() : null);
 
         return new ConversationTask(task.id(), task.agentId(), task.conversationId(),
-                definition, schedule, runInfo, task.createdAt(), task.updatedAt());
+                task.definition(), task.schedule(), runInfo, task.createdAt(), task.updatedAt());
     }
 }

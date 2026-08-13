@@ -1,19 +1,19 @@
 package io.workflowai.adapter.in.rest;
 
 import io.workflowai.adapter.in.rest.dto.AgentInfo;
+import io.workflowai.adapter.in.rest.dto.AgentMapper;
 import io.workflowai.adapter.in.rest.dto.ChatRequest;
 import io.workflowai.adapter.in.rest.dto.ConversationResponse;
 import io.workflowai.adapter.in.rest.dto.DecisionPayload;
 import io.workflowai.adapter.in.rest.dto.ErrorPayload;
 import io.workflowai.adapter.in.rest.dto.EventType;
-import io.workflowai.adapter.in.rest.dto.AgentMapper;
 import io.workflowai.adapter.in.rest.dto.MessageResponse;
 import io.workflowai.adapter.in.rest.dto.StagePayload;
 import io.workflowai.application.execution.AgentRequest;
-import io.workflowai.domain.workflow.WorkflowEvent;
-import io.workflowai.domain.workflow.StageId;
 import io.workflowai.application.port.in.AgentUseCase;
 import io.workflowai.application.port.in.ConversationUseCase;
+import io.workflowai.domain.workflow.StageId;
+import io.workflowai.domain.workflow.WorkflowEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -33,6 +33,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+import static io.workflowai.adapter.in.rest.dto.AgentMapper.toAgentInfo;
+import static io.workflowai.adapter.in.rest.dto.AgentMapper.toConversationResponse;
 import static io.workflowai.adapter.in.rest.dto.EventType.CONVERSATION_COMPLETED;
 import static io.workflowai.adapter.in.rest.dto.EventType.CONVERSATION_CREATED;
 import static io.workflowai.adapter.in.rest.dto.EventType.DECISION;
@@ -41,8 +43,6 @@ import static io.workflowai.adapter.in.rest.dto.EventType.MEMORY_UPDATED;
 import static io.workflowai.adapter.in.rest.dto.EventType.RESPONSE_COMPLETED;
 import static io.workflowai.adapter.in.rest.dto.EventType.STAGE;
 import static io.workflowai.adapter.in.rest.dto.EventType.TOKEN;
-import static io.workflowai.adapter.in.rest.dto.AgentMapper.toAgentInfo;
-import static io.workflowai.adapter.in.rest.dto.AgentMapper.toConversationResponse;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.COMPLETED;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.FAILED;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.STARTED;
@@ -79,7 +79,7 @@ public class AgentController {
 
     @GetMapping("/{agentId}")
     public ResponseEntity<AgentInfo> getAgent(@PathVariable UUID agentId) {
-        return ResponseEntity.ok(toAgentInfo(agentService.get(agentId)));
+        return ResponseEntity.ok(toAgentInfo(agentService.getEnabledAgent(agentId)));
     }
 
     @GetMapping("/{agentId}/conversations")

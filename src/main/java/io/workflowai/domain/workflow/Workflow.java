@@ -1,16 +1,16 @@
 package io.workflowai.domain.workflow;
 
 import io.workflowai.domain.agent.AgentProperties;
-import io.workflowai.domain.exceptions.WorkflowExecutionException;
 import io.workflowai.domain.agent.TriggerSource;
+import io.workflowai.domain.exceptions.WorkflowExecutionException;
 import io.workflowai.domain.task.SchedulingIntentDetector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Workflow {
 
@@ -31,7 +31,7 @@ public class Workflow {
 
         Optional<String> scheduleCommand = SchedulingIntentDetector.extractCommand(message);
 
-        Map<String, Object> initialState = new HashMap<>();
+        Map<String, Object> initialState = new ConcurrentHashMap<>();
         initialState.put(WorkflowState.KEY_RUN_ID, runId);
         initialState.put(WorkflowState.KEY_CONVERSATION_ID, conversationId);
         initialState.put(WorkflowState.KEY_TRIGGER_SOURCE, triggerSource);

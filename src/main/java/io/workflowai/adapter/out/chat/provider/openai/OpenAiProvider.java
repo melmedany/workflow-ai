@@ -62,18 +62,18 @@ public class OpenAiProvider extends AbstractOpenAiProvider {
     public String call(ChatCompletionRequest request) {
         String resolvedModel = resolveModel(request.model(), properties.defaultModel());
         List<ChatMessage> messages = buildMessages(request);
-        ChatModel chat = resolvedModel.equals(properties.defaultModel())
+        ChatModel chatModel = resolvedModel.equals(properties.defaultModel())
                 ? getDefaultChatModel(properties.defaultModel, properties.defaultTemperature)
                 : buildChatModel(resolvedModel, request.temperature());
         log.debug("Calling {} model [{}]", getId(), resolvedModel);
         try {
-            return extractText(chat.chat(messages));
+            return extractText(chatModel.chat(messages));
         } catch (Exception ex) {
             throw new ChatProviderCallException(getId(), "Sync call failed for model [%s]".formatted(resolvedModel), ex);
         }
     }
 
-    @ConfigurationProperties(prefix = "langchain4j.providers.openai")
+    @ConfigurationProperties(prefix = "langchain4j.openai")
     public record OpenAiProperties(String baseUrl, String apiKey, String defaultModel,
                                    double defaultTemperature, Set<String> supportedModels) {
 

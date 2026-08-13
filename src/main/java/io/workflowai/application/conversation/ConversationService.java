@@ -1,5 +1,6 @@
 package io.workflowai.application.conversation;
 
+import io.workflowai.application.port.in.TaskUseCase;
 import io.workflowai.domain.exceptions.ConversationNotFoundException;
 import io.workflowai.domain.conversation.Conversation;
 import io.workflowai.domain.conversation.ConversationMessage;
@@ -14,10 +15,12 @@ public class ConversationService implements ConversationUseCase {
 
     private final ConversationStorage conversationStorage;
     private final ConversationMessageStorage conversationMessageStorage;
+    private final TaskUseCase taskUseCase;
 
-    public ConversationService(ConversationStorage conversationStorage, ConversationMessageStorage conversationMessageStorage) {
+    public ConversationService(ConversationStorage conversationStorage, ConversationMessageStorage conversationMessageStorage, TaskUseCase taskUseCase) {
         this.conversationStorage = conversationStorage;
         this.conversationMessageStorage = conversationMessageStorage;
+        this.taskUseCase = taskUseCase;
     }
 
     @Override
@@ -44,9 +47,9 @@ public class ConversationService implements ConversationUseCase {
         return conversationMessageStorage.findByAgentIdAndConversationId(agentId, conversationId);
     }
 
-
     @Override
-    public void deleteConversation(UUID agentId, UUID id) {
-        conversationStorage.delete(agentId, id);
+    public void deleteConversation(UUID agentId, UUID conversationId) {
+        taskUseCase.cancelAll(agentId, conversationId);
+        conversationStorage.delete(agentId, conversationId);
     }
 }

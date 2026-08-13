@@ -1,277 +1,236 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.domain.workflow.WorkflowState;
 import io.workflowai.application.port.out.AgentMemoryStorage;
+import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.application.port.out.ConversationMessageStorage;
-import io.workflowai.application.port.out.ChatCompletionRequest;
-import io.workflowai.domain.agent.AgentProperties;
 import io.workflowai.domain.agent.ChatProviderId;
-import io.workflowai.domain.conversation.ConversationMessage;
 import io.workflowai.domain.workflow.DecisionMode;
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.StageId;
-import io.workflowai.domain.workflow.WorkflowId;
-import io.workflowai.domain.workflow.WorkflowPolicy;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class WorkflowStagesTest {
 
-    @Test
-    void usesEachStageConfiguredProvider() throws InterruptedException {
-        TestProviders providers = new TestProviders();
-        RecordingConversationMessageStorage messages = new RecordingConversationMessageStorage();
-        RecordingMemoryStorage memory = new RecordingMemoryStorage();
-        StageSettings stagesProperties = stagesProperties();
-        PersistResponseStage persistResponseStage = new PersistResponseStage(messages, List.of());
-        DecisionResponseGenerator generator = new DecisionResponseGenerator(providers.registry(), stagesProperties);
+    private final ChatProviderRegistry providers = mock();
+    private final ChatProvider ollama = mock();
+    private final ChatProvider openAi = mock();
+    private final ChatProvider anthropic = mock();
+    private final ChatProvider bonzai = mock();
 
-        GenerateClarificationStage clarificationStage = new GenerateClarificationStage(
-                providers.registry(), stagesProperties, persistResponseStage, List.of());
-        WorkflowState clarification = state(new RoutingDecision(
-                DecisionMode.CLARIFY, List.of(), "request", "", "clarify"));
-        clarificationStage.execute(clarification);
-        assertRequest(providers.provider(ChatProviderId.Bonzai).callRequests(), "clarification-model", 0.3);
+    private final ConversationMessageStorage messages = mock();
+    private final AgentMemoryStorage memory = mock();
 
-        providers.clear();
-        GenerateRedirectStage redirectStage = new GenerateRedirectStage(generator, persistResponseStage, List.of());
-        WorkflowState redirect = state(RoutingDecision.redirect("redirect", "request"));
-        redirectStage.execute(redirect);
-        assertRequest(providers.provider(ChatProviderId.OpenAI).streamRequests(), "redirect-model", 0.4);
+    private final StageSettings stageSettings = StagesUtil.stageSettings();
 
-        providers.clear();
-        GenerateGreetingStage greetingStage = new GenerateGreetingStage(generator, persistResponseStage, List.of());
-        WorkflowState greeting = state(RoutingDecision.greet("greeting", "request"));
-        greetingStage.execute(greeting);
-        assertRequest(providers.provider(ChatProviderId.Anthropic).streamRequests(), "greeting-model", 0.5);
+    private final PersistResponseStage persistResponseStage =
+            new PersistResponseStage(messages, List.of());
 
-        providers.clear();
-        GenerateRefusalStage refusalStage = new GenerateRefusalStage(generator, persistResponseStage, List.of());
-        WorkflowState refusal = state(RoutingDecision.refuse("refusal", "request"));
-        refusalStage.execute(refusal);
-        assertRequest(providers.provider(ChatProviderId.Bonzai).streamRequests(), "refusal-model", 0.7);
+    private final DecisionResponseGenerator generator = new DecisionResponseGenerator(providers, stageSettings);
 
-        providers.clear();
-        CompactMemoryStage compactMemoryStage = new CompactMemoryStage(providers.registry(), stagesProperties, memory);
-        WorkflowState compactMemory = state(RoutingDecision.greet("greeting", "request"));
-        compactMemoryStage.execute(compactMemory);
-        waitFor(() -> !providers.provider(ChatProviderId.Ollama).callRequests().isEmpty());
-        assertRequest(providers.provider(ChatProviderId.Ollama).callRequests(), "memory-model", 0.6);
-    }
+    @BeforeEach
+    void setUp() {
+        when(providers.get(ChatProviderId.Ollama)).thenReturn(ollama);
+        when(providers.get(ChatProviderId.OpenAI)).thenReturn(openAi);
+        when(providers.get(ChatProviderId.Anthropic)).thenReturn(anthropic);
+        when(providers.get(ChatProviderId.Bonzai)).thenReturn(bonzai);
 
-    @Test
-    void buffersAndGuardsEachDecisionBranchBeforeDeliveringItOnce() {
-        for (StageId stageId : List.of(StageId.GENERATE_REDIRECT, StageId.GENERATE_GREETING, StageId.GENERATE_REFUSAL)) {
-            TestProviders providers = new TestProviders();
-            RecordingConversationMessageStorage messages = new RecordingConversationMessageStorage();
-            StageSettings stagesProperties = stagesProperties();
-            PersistResponseStage persistResponseStage = new PersistResponseStage(messages, List.of());
-            DecisionResponseGenerator generator = new DecisionResponseGenerator(providers.registry(), stagesProperties);
-            WorkflowState state = state(decision(stageId));
+        when(ollama.call(any(ChatCompletionRequest.class))).thenReturn("Ollama response");
+        when(openAi.call(any(ChatCompletionRequest.class))).thenReturn("OpenAI response");
+        when(anthropic.call(any(ChatCompletionRequest.class))).thenReturn("Anthropic response");
+        when(bonzai.call(any(ChatCompletionRequest.class))).thenReturn("Bonzai response");
 
-            switch (stageId) {
-                case GENERATE_REDIRECT -> new GenerateRedirectStage(generator, persistResponseStage, List.of()).execute(state);
-                case GENERATE_GREETING -> new GenerateGreetingStage(generator, persistResponseStage, List.of()).execute(state);
-                case GENERATE_REFUSAL -> new GenerateRefusalStage(generator, persistResponseStage, List.of()).execute(state);
-                default -> throw new IllegalArgumentException("Unexpected decision stage: " + stageId);
-            }
+        when(ollama.stream(any(ChatCompletionRequest.class), any(Consumer.class))).thenAnswer(invocation -> {
+            ChatCompletionRequest request = invocation.getArgument(0);
+            Consumer<String> consumer = invocation.getArgument(1);
 
-            String expected = switch (stageId) {
-                case GENERATE_REDIRECT -> "OpenAI response";
-                case GENERATE_GREETING -> "Anthropic response";
-                case GENERATE_REFUSAL -> "Bonzai response";
-                default -> throw new IllegalArgumentException("Unexpected decision stage: " + stageId);
-            };
+            consumer.accept("Ollama response");
+            return "Ollama response";
+        });
 
-            assertThat(messages.messages()).singleElement().extracting(ConversationMessage::content).isEqualTo(expected);
-        }
-    }
+        when(openAi.stream(any(ChatCompletionRequest.class), any(Consumer.class))).thenAnswer(invocation -> {
+            Consumer<String> consumer = invocation.getArgument(1);
+            consumer.accept("OpenAI response");
+            return "OpenAI response";
+        });
 
-    private void assertRequest(List<ChatCompletionRequest> requests, String model, double temperature) {
-        assertThat(requests).singleElement().satisfies(request -> {
-            assertThat(request.model()).isEqualTo(model);
-            assertThat(request.temperature()).isEqualTo(temperature);
+        when(anthropic.stream(any(ChatCompletionRequest.class), any(Consumer.class))).thenAnswer(invocation -> {
+            Consumer<String> consumer = invocation.getArgument(1);
+            consumer.accept("Anthropic response");
+            return "Anthropic response";
+        });
+
+        when(bonzai.stream(any(ChatCompletionRequest.class), any(Consumer.class))).thenAnswer(invocation -> {
+            Consumer<String> consumer = invocation.getArgument(1);
+            consumer.accept("Bonzai response");
+            return "Bonzai response";
         });
     }
 
-    private StageSettings stagesProperties() {
-        return new StageSettings(List.of(
-                stage(StageId.CLASSIFICATION, ChatProviderId.Ollama, "classification-model", 0.1),
-                stage(StageId.GENERATE_CLARIFICATION, ChatProviderId.Bonzai, "clarification-model", 0.3),
-                stage(StageId.GENERATE_REDIRECT, ChatProviderId.OpenAI, "redirect-model", 0.4),
-                stage(StageId.GENERATE_GREETING, ChatProviderId.Anthropic, "greeting-model", 0.5),
-                stage(StageId.GENERATE_REFUSAL, ChatProviderId.Bonzai, "refusal-model", 0.7),
-                stage(StageId.COMPACT_MEMORY, ChatProviderId.Ollama, "memory-model", 0.6)));
+    @Test
+    void usesConfiguredProviderForClarification() {
+        var stage = new GenerateClarificationStage(
+                providers,
+                stageSettings,
+                persistResponseStage,
+                List.of());
+
+        stage.execute(StagesUtil.state(new RoutingDecision(
+                DecisionMode.CLARIFY,
+                List.of(),
+                "request",
+                "",
+                "clarify")));
+
+        var request = captureRequest(bonzai, "clarification-model", 0.3);
+
+        assertThat(request.model()).isEqualTo("clarification-model");
+        assertThat(request.temperature()).isEqualTo(0.3);
     }
 
-    private WorkflowState state(RoutingDecision decision) {
-        return new WorkflowState(Map.of(
-                WorkflowState.KEY_RUN_ID, UUID.randomUUID(),
-                WorkflowState.KEY_CONVERSATION_ID, UUID.randomUUID(),
-                WorkflowState.KEY_USER_MESSAGE, "request",
-                WorkflowState.KEY_SYSTEM_PROMPT, "system",
-                WorkflowState.KEY_MEMORY_CONTEXT, "memory",
-                WorkflowState.KEY_AGENT_PROPERTIES, agentProperties(),
-                WorkflowState.KEY_ROUTING_DECISION, decision,
-                WorkflowState.KEY_GENERATED_RESPONSE, "response"));
+    @Test
+    void usesConfiguredProviderForRedirect() {
+        var stage = new GenerateRedirectStage(
+                generator,
+                persistResponseStage,
+                List.of());
+
+        stage.execute(StagesUtil.state(RoutingDecision.redirect(
+                "redirect",
+                "request")));
+
+        assertRequest(openAi, "redirect-model", 0.4);
     }
 
-    private AgentProperties agentProperties() {
-        return new AgentProperties(UUID.randomUUID(), "agent", "description", true,
-                WorkflowId.STANDARD, ChatProviderId.Ollama, "agent-model", 0.9, "system", true,
-                new WorkflowPolicy(List.of(), null, "fallback"));
+    @Test
+    void usesConfiguredProviderForGreeting() {
+        var stage = new GenerateGreetingStage(
+                generator,
+                persistResponseStage,
+                List.of());
+
+        stage.execute(StagesUtil.state(RoutingDecision.greet(
+                "greeting",
+                "request")));
+
+        assertRequest(anthropic, "greeting-model", 0.5);
     }
 
-    private StageSettings.StageSetting stage(StageId stageId, ChatProviderId providerId,
-                                                    String model, double temperature) {
-        return new StageSettings.StageSetting(stageId, providerId, model, temperature);
+    @Test
+    void usesConfiguredProviderForRefusal() {
+        var stage = new GenerateRefusalStage(
+                generator,
+                persistResponseStage,
+                List.of());
+
+        stage.execute(StagesUtil.state(RoutingDecision.refuse(
+                "refusal",
+                "request")));
+
+        assertRequest(bonzai, "refusal-model", 0.7);
     }
 
-    private RoutingDecision decision(StageId stageId) {
-        return switch (stageId) {
-            case GENERATE_REDIRECT -> RoutingDecision.redirect("redirect", "request");
-            case GENERATE_GREETING -> RoutingDecision.greet("greeting", "request");
-            case GENERATE_REFUSAL -> RoutingDecision.refuse("refusal", "request");
-            default -> throw new IllegalArgumentException("Unexpected decision stage: " + stageId);
-        };
+    @Test
+    void usesConfiguredProviderForMemoryCompaction() {
+        var stage = new CompactMemoryStage(
+                providers,
+                stageSettings,
+                memory);
+
+        stage.execute(StagesUtil.state(RoutingDecision.greet(
+                "greeting",
+                "request")));
+
+        verify(ollama).call(argThat(request ->
+                request.model().equals("memory-model")
+                        && request.temperature() == 0.6));
     }
 
-    private void waitFor(Condition condition) throws InterruptedException {
-        for (int attempts = 0; attempts < 100; attempts++) {
-            if (condition.matches()) {
-                return;
-            }
-            Thread.sleep(10);
-        }
-        throw new AssertionError("Timed out waiting for asynchronous memory compaction");
+    @Test
+    void persistsRedirectResponseOnce() {
+        executeDecisionStage(StageId.GENERATE_REDIRECT);
+
+        verify(messages).save(any(UUID.class), any(UUID.class),
+                argThat(message ->
+                        message.content().equals("OpenAI response")));
     }
 
-    private interface Condition {
-        boolean matches();
+    @Test
+    void persistsGreetingResponseOnce() {
+        executeDecisionStage(StageId.GENERATE_GREETING);
+
+        verify(messages).save(any(UUID.class), any(UUID.class),
+                argThat(message ->
+                        message.content().equals("Anthropic response")));
     }
 
-    private static final class TestProviders {
-        private final Map<ChatProviderId, RecordingProvider> providers = new EnumMap<>(ChatProviderId.class);
+    @Test
+    void persistsRefusalResponseOnce() {
+        executeDecisionStage(StageId.GENERATE_REFUSAL);
 
-        private TestProviders() {
-            providers.put(ChatProviderId.Ollama, new RecordingProvider(ChatProviderId.Ollama, "Ollama response"));
-            providers.put(ChatProviderId.OpenAI, new RecordingProvider(ChatProviderId.OpenAI, "OpenAI response"));
-            providers.put(ChatProviderId.Anthropic, new RecordingProvider(ChatProviderId.Anthropic, "Anthropic response"));
-            providers.put(ChatProviderId.Bonzai, new RecordingProvider(ChatProviderId.Bonzai, "Bonzai response"));
-        }
-
-        private ChatProviderRegistry registry() {
-            return new ChatProviderRegistry(List.copyOf(providers.values()));
-        }
-
-        private RecordingProvider provider(ChatProviderId providerId) {
-            return providers.get(providerId);
-        }
-
-        private void clear() {
-            providers.values().forEach(RecordingProvider::clear);
-        }
+        verify(messages).save(any(UUID.class), any(UUID.class),
+                argThat(message ->
+                        message.content().equals("Bonzai response")));
     }
 
-    private static final class RecordingProvider implements ChatProvider {
-        private final ChatProviderId id;
-        private final String response;
-        private final List<ChatCompletionRequest> streamRequests = new ArrayList<>();
-        private final List<ChatCompletionRequest> callRequests = new ArrayList<>();
+    private void executeDecisionStage(StageId stageId) {
+        var state = StagesUtil.state(StagesUtil.decision(stageId));
 
-        private RecordingProvider(ChatProviderId id, String response) {
-            this.id = id;
-            this.response = response;
-        }
+        switch (stageId) {
+            case GENERATE_REDIRECT -> new GenerateRedirectStage(
+                    generator,
+                    persistResponseStage,
+                    List.of()).execute(state);
 
-        @Override
-        public ChatProviderId getId() {
-            return id;
-        }
+            case GENERATE_GREETING -> new GenerateGreetingStage(
+                    generator,
+                    persistResponseStage,
+                    List.of()).execute(state);
 
-        @Override
-        public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
-            streamRequests.add(request);
-            for (String token : response.split("(?<=\\s)")) {
-                tokenConsumer.accept(token);
-            }
-            return response;
-        }
+            case GENERATE_REFUSAL -> new GenerateRefusalStage(
+                    generator,
+                    persistResponseStage,
+                    List.of()).execute(state);
 
-        @Override
-        public String call(ChatCompletionRequest request) {
-            callRequests.add(request);
-            return response;
-        }
-
-        @Override
-        public boolean supportsModel(String model) {
-            return true;
-        }
-
-        @Override
-        public java.util.Set<String> supportedModels() {
-            return java.util.Set.of();
-        }
-
-        private List<ChatCompletionRequest> streamRequests() {
-            return streamRequests;
-        }
-
-        private List<ChatCompletionRequest> callRequests() {
-            return callRequests;
-        }
-
-        private void clear() {
-            streamRequests.clear();
-            callRequests.clear();
+            default -> throw new IllegalArgumentException(
+                    "Unexpected decision stage: " + stageId);
         }
     }
 
-    private record RecordingConversationMessageStorage(List<ConversationMessage> messages) implements ConversationMessageStorage {
-        private RecordingConversationMessageStorage() {
-            this(new ArrayList<>());
-        }
+    private ChatCompletionRequest captureRequest(ChatProvider provider, String model, double temperature) {
+        ArgumentCaptor<ChatCompletionRequest> captor = ArgumentCaptor.forClass(ChatCompletionRequest.class);
 
-        @Override
-        public void save(UUID conversationId, UUID agentId, ConversationMessage message) {
-            messages.add(message);
-        }
+        verify(provider).call(captor.capture());
 
-        @Override
-        public List<ConversationMessage> findByAgentIdAndConversationId(UUID agentId, UUID conversationId) {
-            return List.copyOf(messages);
-        }
+        assertThat(captor.getValue().model()).isEqualTo(model);
+        assertThat(captor.getValue().temperature()).isEqualTo(temperature);
+
+        return captor.getValue();
     }
 
-    private record RecordingMemoryStorage(List<String> replacements) implements AgentMemoryStorage {
-        private RecordingMemoryStorage() {
-            this(new ArrayList<>());
-        }
+    private void assertRequest(
+            ChatProvider provider,
+            String model,
+            double temperature) {
 
-        @Override
-        public Optional<String> getMemory(UUID conversationId, UUID agentId) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void replace(UUID conversationId, UUID agentId, String content) {
-            replacements.add(content);
-        }
-
-        @Override
-        public void clear(UUID conversationId) {
-        }
+        verify(provider).stream(
+                argThat(request ->
+                        request.model().equals(model)
+                                && request.temperature() == temperature),
+                any(Consumer.class));
     }
 }

@@ -3,10 +3,19 @@ spring:
     name: workflow-ai
     version: 1.0
 
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     url: jdbc:postgresql://localhost:5432/workflow-ai
     username: workflow-ai
     password: workflow-ai
+
+  jpa:
+    properties:
+      hibernate:
+        type:
+          json_format_mapper: jackson3
 
   flyway:
     schemas: "public, tasks"
@@ -23,90 +32,91 @@ jobrunr:
     table-prefix: "tasks."
 
 langchain4j:
-  providers:
-    ollama:
-      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-      default-model: mistral
-      default-temperature: 0.7
-      supported-models:
-        - deepseek-r1:8b
-        - deepseek-r1:32b
-        - deepseek-r1:671b
-        - mistral:latest
-        - mistral:7b
-        - mistral-large
-        - gemma4:e2b
-        - gemma4:9b
-        - gemma4:12b
-        - gemma4:26b
-        - qwen3.5:2b
-        - qwen3.5:4b
-        - qwen3.5:9b
-        - qwen3.6:27b
-        - phi4:mini
-        - phi4:14b
-    openai:
-      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
-      api-key: ${OPENAI_API_KEY:not-configured}
-      default-model: gpt-4o-mini
-      default-temperature: 0.7
-      supported-models:
-        - gpt-4o-mini
-        - gpt-5.6-luna
-        - gpt-5.6-terra
-        - gpt-5.6-sol
-        - gpt-5.5
-        - gpt-5.4
-        - gpt-5.1
-        - gpt-5
-        - gpt-5-mini
-        - gpt-5-nano
-        - gpt-4.1
-        - gpt-4.1-mini
-        - gpt-4.1-nano
-        - o3
-        - o4-mini
-        - o3-pro
-    anthropic:
-      base-url: ${ANTHROPIC_BASE_URL:not-configured}
-      api-key: ${ANTHROPIC_API_KEY:not-configured}
-      default-model: claude-haiku-4-5-20251001
-      default-temperature: 0.7
-      supported-models:
-        - claude-haiku-4-5-20251001
-        - claude-haiku-4-5
-        - claude-sonnet-4.6
-        - claude-sonnet-5
-        - claude-opus-4.7
-        - claude-opus-4.8
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    default-model: mistral
+    default-temperature: 0.7
+    timeout: PT2M
+    supported-models:
+      - llama3.2:3b
+      - deepseek-r1:8b
+      - deepseek-r1:32b
+      - deepseek-r1:671b
+      - mistral:latest
+      - mistral:7b
+      - mistral-large
+      - gemma4:e2b
+      - gemma4:9b
+      - gemma4:12b
+      - gemma4:26b
+      - qwen3.5:2b
+      - qwen3.5:4b
+      - qwen3.5:9b
+      - qwen3.6:27b
+      - phi4:mini
+      - phi4:14b
+  openai:
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${OPENAI_API_KEY:not-configured}
+    default-model: gpt-4o-mini
+    default-temperature: 0.7
+    supported-models:
+      - gpt-4o-mini
+      - gpt-5.6-luna
+      - gpt-5.6-terra
+      - gpt-5.6-sol
+      - gpt-5.5
+      - gpt-5.4
+      - gpt-5.1
+      - gpt-5
+      - gpt-5-mini
+      - gpt-5-nano
+      - gpt-4.1
+      - gpt-4.1-mini
+      - gpt-4.1-nano
+      - o3
+      - o4-mini
+      - o3-pro
+  anthropic:
+    base-url: ${ANTHROPIC_BASE_URL:not-configured}
+    api-key: ${ANTHROPIC_API_KEY:not-configured}
+    default-model: claude-haiku-4-5-20251001
+    default-temperature: 0.7
+    supported-models:
+      - claude-haiku-4-5-20251001
+      - claude-haiku-4-5
+      - claude-sonnet-4.6
+      - claude-sonnet-5
+      - claude-opus-4.7
+      - claude-opus-4.8
 
 workflow-ai:
   stages:
     stages:
       - stage-id: CLASSIFICATION
         chat-provider-id: Ollama
-        model: gemma4:e2b
-        temperature: 0.1
+        model: llama3.2:3b
+        temperature: 0.2
       - stage-id: GENERATE_CLARIFICATION
         chat-provider-id: Ollama
-        model: gemma4:e2b
-        temperature: 0.1
+        model: llama3.2:3b
+        temperature: 0.2
       - stage-id: GENERATE_REDIRECT
         chat-provider-id: Ollama
-        model: gemma4:e2b
-        temperature: 0.1
+        model: llama3.2:3b
+        temperature: 0.2
       - stage-id: GENERATE_GREETING
         chat-provider-id: Ollama
-        model: gemma4:e2b
-        temperature: 0.1
+        model: llama3.2:3b
+        temperature: 0.2
       - stage-id: GENERATE_REFUSAL
         chat-provider-id: Ollama
-        model: gemma4:e2b
-        temperature: 0.1
+        model: llama3.2:3b
+        temperature: 0.2
       - stage-id: COMPACT_MEMORY
         chat-provider-id: Ollama
-        model: gemma4:e2b
-        temperature: 0.1
+        model: llama3.2:3b
+        temperature: 0.2
   guardrail:
     input-blocked-terms:
       - "ignore previous instructions"
@@ -117,20 +127,19 @@ workflow-ai:
       - "jailbreak"
     output-blocked-terms:
       - "to be added later"
-  providers:
+  chat-providers:
     bonzai:
-      base-url: ${BONZAI_BASE_URL:https://api-v2.bonzai.iodigital.com}
+      base-url: ${BONZAI_BASE_URL:not-configured}
       api-key: ${BONZAI_API_KEY:not-configured}
-      default-model: gemini-3.1-flash
+      default-model: gemini-3.1-flash-lite
       default-temperature: 0.7
       supported-models:
-        - gemini-3.1-flash
+        - gemini-3.1-flash-lite
         - claude-haiku-4-5
         - claude-sonnet-4-6
         - claude-sonnet-5
         - claude-opus-4-8
         - Qwen3.6-27B
-        - gemini-3.5-flash
         - gemini-3.1-flash-lite
         - glm-5
         - glm-4.7

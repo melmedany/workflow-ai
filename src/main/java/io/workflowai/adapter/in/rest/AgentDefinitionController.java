@@ -1,8 +1,8 @@
 package io.workflowai.adapter.in.rest;
 
-import io.workflowai.adapter.in.rest.dto.AgentSummaryDto;
 import io.workflowai.adapter.in.rest.dto.AgentMapper;
-import io.workflowai.application.port.in.AgentAdminUseCase;
+import io.workflowai.adapter.in.rest.dto.AgentSummaryDto;
+import io.workflowai.application.port.in.AgentDefinitionUseCase;
 import io.workflowai.application.port.in.AgentUseCase;
 import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.agent.ChatProviderId;
@@ -25,59 +25,61 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin/agents")
-public class AgentAdminController {
+public class AgentDefinitionController {
 
-    private final AgentAdminUseCase agentAdminUseCase;
+    private final AgentDefinitionUseCase agentDefinitionUseCase;
     private final AgentUseCase agentUseCase;
 
-    public AgentAdminController(AgentAdminUseCase agentAdminUseCase, AgentUseCase agentUseCase) {
-        this.agentAdminUseCase = agentAdminUseCase;
+    public AgentDefinitionController(AgentDefinitionUseCase agentDefinitionUseCase, AgentUseCase agentUseCase) {
+        this.agentDefinitionUseCase = agentDefinitionUseCase;
         this.agentUseCase = agentUseCase;
     }
 
     @GetMapping("/supported-chat-providers")
     public ResponseEntity<Map<ChatProviderId, Set<String>>> supportedChatProviders() {
-        return ResponseEntity.ok(agentAdminUseCase.supportedChatProviders());
+        return ResponseEntity.ok(agentDefinitionUseCase.supportedChatProviders());
     }
 
     @GetMapping({"", "/"})
     public ResponseEntity<List<AgentSummaryDto>> getAgents() {
-        return ResponseEntity.ok(agentAdminUseCase.getAllDefinitions().stream()
+        return ResponseEntity.ok(agentDefinitionUseCase.getAllDefinitions().stream()
                 .map(AgentMapper::toAgentSummary)
                 .toList());
     }
 
     @GetMapping("/{agentId}")
     public ResponseEntity<AgentDefinition> getAgent(@PathVariable UUID agentId) {
-        return ResponseEntity.ok(agentAdminUseCase.getDefinition(agentId));
+        return ResponseEntity.ok(agentDefinitionUseCase.getDefinition(agentId));
     }
 
     @GetMapping(path = "/{agentId}/workflowDiagram", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> getWorkflowDiagram(@PathVariable UUID agentId) {
-        return ResponseEntity.ok(agentUseCase.get(agentId).workflowDiagram());
+        return ResponseEntity.ok(agentUseCase.workflowDiagram(agentId));
     }
 
     @PostMapping({"", "/"})
     public ResponseEntity<AgentDefinition> createAgent(@RequestBody AgentDefinition definition) {
-        AgentDefinition created = agentAdminUseCase.saveDefinition(definition);
+        AgentDefinition created = agentDefinitionUseCase.saveDefinition(definition);
         return ResponseEntity.created(URI.create("/api/admin/agents/%s".formatted(created.agentId()))).body(created);
     }
 
     @PutMapping("/{agentId}")
     public ResponseEntity<AgentDefinition> updateAgent(@PathVariable UUID agentId, @RequestBody AgentDefinition definition) {
-        AgentDefinition updated = agentAdminUseCase.updateDefinition(new AgentDefinition(
+        AgentDefinition updated = agentDefinitionUseCase.updateDefinition(new AgentDefinition(
                 agentId,
                 definition.details(),
                 definition.workflowId(),
                 definition.chatProperties(),
                 definition.workflowPolicy()));
 
+        agentUseCase.reload(updated.agentId());
+
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{agentId}")
     public ResponseEntity<Void> deleteAgent(@PathVariable UUID agentId) {
-        agentAdminUseCase.deleteDefinition(agentId);
+        agentDefinitionUseCase.deleteDefinition(agentId);
         return ResponseEntity.noContent().build();
     }
 }

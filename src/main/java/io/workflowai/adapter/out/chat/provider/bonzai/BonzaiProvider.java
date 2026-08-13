@@ -41,7 +41,7 @@ public class BonzaiProvider extends AbstractOpenAiProvider {
         return properties.supportedModels();
     }
 
-    @ConfigurationProperties(prefix = "workflow-ai.providers.bonzai")
+    @ConfigurationProperties(prefix = "workflow-ai.chat-providers.bonzai")
     public record BonzaiProperties(String baseUrl, String apiKey, String defaultModel,
                                    double defaultTemperature, Set<String> supportedModels) {
 

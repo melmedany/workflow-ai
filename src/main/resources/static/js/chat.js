@@ -201,19 +201,19 @@ function renderTask(t) {
         <div class="task-instruction">${t.name}</div>
         <div class="task-meta">
             <span class="task-status-badge task-status-${t.status.toLowerCase()}">${t.status}</span>
-            <span>${t.runOnceAt ? 'Once ' + dateFns.formatRelative(new Date(t.runOnceAt), new Date()) : cronstrue.toString(t.cronExpression)}</span>
+            <span>${t.scheduleType === 'ONCE' ? 'Once ' + dateFns.formatRelative(t.nextRunAt, new Date()) : dateFns.formatDuration(t.duration)}</span>
             <span>Next: ${nextRun}</span>
             <span>Last run: ${lastRun}</span>
         </div>`;
 
     const actions = document.createElement('div');
     actions.className = 'task-actions';
-    if (t.status === 'ACTIVE') {
+    if (t.status === 'ACTIVE' && t.scheduleType !== 'ONCE') {
         actions.appendChild(taskActionButton('Pause', () => taskAction(t.id, 'pause')));
-    } else if (t.status === 'PAUSED') {
+    } else if (t.status === 'PAUSED' && t.scheduleType !== 'ONCE') {
         actions.appendChild(taskActionButton('Resume', () => taskAction(t.id, 'resume')));
     }
-    if (t.status !== 'CANCELLED') {
+    if (!['CANCELLED', 'COMPLETED'].includes(t.status)) {
         actions.appendChild(taskActionButton('Cancel', () => taskAction(t.id, 'cancel')));
     }
 

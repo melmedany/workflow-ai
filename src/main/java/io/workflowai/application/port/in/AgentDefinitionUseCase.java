@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public interface AgentAdminUseCase {
+public interface AgentDefinitionUseCase {
 
     Map<ChatProviderId, Set<String>> supportedChatProviders();
 

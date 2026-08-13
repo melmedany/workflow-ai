@@ -1,13 +1,13 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.domain.workflow.WorkflowStage;
-import io.workflowai.domain.workflow.WorkflowState;
+import io.workflowai.application.execution.workflow.WorkflowPrompts;
+import io.workflowai.application.port.out.AgentMemoryStorage;
 import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.agent.AgentProperties;
 import io.workflowai.domain.workflow.StageId;
-import io.workflowai.application.execution.workflow.WorkflowPrompts;
-import io.workflowai.application.port.out.AgentMemoryStorage;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,14 +45,11 @@ public class CompactMemoryStage implements WorkflowStage {
         String userMessage = state.userMessage();
         String response = state.generatedResponse().orElse("");
 
-        // Compact memory without affecting streaming the response back; can affect the next request
-        // if memory compaction took too long, but never blocks this one.
-        Thread.startVirtualThread(() -> compactMemoryAsync(agentProperties.id(), agentProperties.systemPrompt(),
-                state.conversationId(), previousMemory, userMessage, response));
+        compactMemory(agentProperties.id(), agentProperties.systemPrompt(), state.conversationId(), previousMemory, userMessage, response);
         return Map.of();
     }
 
-    private void compactMemoryAsync(UUID agentId, String agentSystemPrompt, UUID conversationId,
+    private void compactMemory(UUID agentId, String agentSystemPrompt, UUID conversationId,
                                      String previousMemory, String userMessage, String response) {
         if (response.isBlank()) {
             return;
@@ -61,11 +58,10 @@ public class CompactMemoryStage implements WorkflowStage {
         StageSettings.StageSetting stageProperties = stagesProperties.get(StageId.COMPACT_MEMORY);
 
         try {
-            // TODO: need some improvements
             String prompt = WorkflowPrompts.memoryCompactionPrompt(previousMemory, userMessage, response);
             ChatCompletionRequest request = new ChatCompletionRequest(stageProperties.model(), stageProperties.temperature(), agentSystemPrompt, prompt, previousMemory);
             String compacted = chatProviderRegistry.get(stageProperties.chatProviderId()).call(request);
-            if (!compacted.isBlank()) {
+            if (compacted != null && !compacted.isBlank()) {
                 agentMemoryStorage.replace(conversationId, agentId, compacted);
                 log.debug("[{}] Memory compacted for conversation [{}]", agentId, conversationId);
             }

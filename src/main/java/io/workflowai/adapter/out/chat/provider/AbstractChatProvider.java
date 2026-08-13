@@ -9,10 +9,13 @@ import dev.langchain4j.guardrail.OutputGuardrail;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.PartialResponse;
+import dev.langchain4j.model.chat.response.PartialResponseContext;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import io.workflowai.application.execution.workflow.WorkflowPrompts;
-import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.application.port.out.ChatCompletionRequest;
+import io.workflowai.application.port.out.ChatProvider;
+import io.workflowai.domain.agent.ChatProviderId;
 import io.workflowai.domain.exceptions.ChatProviderStreamingException;
 import io.workflowai.domain.exceptions.GuardrailBlockedException;
 import org.slf4j.Logger;
@@ -20,16 +23,24 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 public abstract class AbstractChatProvider implements ChatProvider {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractChatProvider.class);
+    private static final long STREAM_TIMEOUT_MILLIS = 90000;
 
     private final InputGuardrail inputGuardrail;
     private final OutputGuardrail outputGuardrail;
+
+    protected final Map<String, ChatModel> chatModelMap = new ConcurrentHashMap<>();
+    protected final Map<String, StreamingChatModel> streamingChatModelMap = new ConcurrentHashMap<>();
 
     protected ChatModel defaultChatModel;
     protected StreamingChatModel defaultStreamingModel;
@@ -104,48 +115,54 @@ public abstract class AbstractChatProvider implements ChatProvider {
         return request.systemPrompt() + "\n\nConversation memory:\n" + request.memoryContext();
     }
 
-    protected String doStream(StreamingChatModel streamingModel,
-                              List<ChatMessage> messages,
-                              Consumer<String> tokenConsumer) {
-        CountDownLatch latch = new CountDownLatch(1);
-        StringBuilder buffer = new StringBuilder();
-        AtomicReference<Throwable> errorRef = new AtomicReference<>();
-
+    protected String doStream(StreamingChatModel streamingModel, List<ChatMessage> messages, Consumer<String> tokenConsumer) {
         log.debug("Starting streaming request on provider [{}]", getId());
 
-        streamingModel.chat(messages, new StreamingChatResponseHandler() {
-            @Override
-            public void onPartialResponse(String token) {
-                tokenConsumer.accept(token);
-                buffer.append(token);
-            }
+        StringBuilder buffer = new StringBuilder();
+        CompletableFuture<Void> completion = new CompletableFuture<>();
 
-            @Override
-            public void onCompleteResponse(ChatResponse response) {
-                log.debug("Streaming completed on provider [{}]", getId());
-                latch.countDown();
-            }
-
-            @Override
-            public void onError(Throwable error) {
-                log.warn("Streaming error on provider [{}]: {}", getId(), error.getMessage());
-                errorRef.set(error);
-                latch.countDown();
-            }
-        });
+        streamingModel.chat(messages, new ResponseHandler(getId(),buffer, completion,
+                tokenConsumer, System.currentTimeMillis() + STREAM_TIMEOUT_MILLIS));
 
         try {
-            latch.await();
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new ChatProviderStreamingException(getId(), "Streaming interrupted", ex);
+            completion.orTimeout(STREAM_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS).join();
+            return applyOutputGuardrail(buffer.toString());
+        } catch (CompletionException ex) {
+            if (ex.getCause() != null && ex.getCause() instanceof TimeoutException cause) {
+                throw new ChatProviderStreamingException(getId(), "Streaming timed out after %s".formatted(STREAM_TIMEOUT_MILLIS), cause);
+            }
+
+            throw new ChatProviderStreamingException(getId(), "Streaming failed.", ex);
+        }
+    }
+
+    private record ResponseHandler(ChatProviderId chatProviderId, StringBuilder buffer, CompletableFuture<Void> completion,
+                                   Consumer<String> tokenConsumer, long timeoutMillis) implements StreamingChatResponseHandler {
+
+        @Override
+        public void onPartialResponse(PartialResponse partialResponse, PartialResponseContext context) {
+            if (shouldCancel()) {
+                context.streamingHandle().cancel();
+            }
+            String token = partialResponse.text();
+            buffer.append(token);
+            tokenConsumer.accept(token);
         }
 
-        if (errorRef.get() != null) {
-            throw new ChatProviderStreamingException(getId(),
-                    "Streaming failed: " + errorRef.get().getMessage(), errorRef.get());
+        @Override
+        public void onCompleteResponse(ChatResponse response) {
+            log.debug("Streaming completed on provider [{}]", chatProviderId);
+            completion.complete(null);
         }
 
-        return applyOutputGuardrail(buffer.toString());
+        @Override
+        public void onError(Throwable error) {
+            log.warn("Streaming error on provider [{}]: {}", chatProviderId, error.getMessage());
+            completion.completeExceptionally(error);
+        }
+
+        private boolean shouldCancel() {
+           return System.currentTimeMillis() > timeoutMillis;
+        }
     }
 }

@@ -9,8 +9,8 @@ public record RoutingDecision(
         String extractedIntent,
         String clarificationQuestion,
         String reason,
-        String cronExpression,
-        String runOnceAt,
+        String scheduleType,
+        String duration,
         String scheduleInstruction) implements Serializable {
 
     public RoutingDecision(DecisionMode decisionMode, List<String> detectedTopics, String extractedIntent,

@@ -2,9 +2,10 @@ package io.workflowai.adapter.in.rest;
 
 import io.workflowai.domain.exceptions.AgentNotFoundException;
 import io.workflowai.domain.exceptions.AgentValidationException;
+import io.workflowai.domain.exceptions.ChatProviderException;
 import io.workflowai.domain.exceptions.ClassificationException;
 import io.workflowai.domain.exceptions.ConversationNotFoundException;
-import io.workflowai.domain.exceptions.ChatProviderException;
+import io.workflowai.domain.exceptions.TaskNotFoundException;
 import io.workflowai.domain.exceptions.WorkflowExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +41,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleAgentNotFound(
             AgentNotFoundException ex, WebRequest request) {
         log.debug("Agent not found: {}", ex.getMessage());
+        return error(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(TaskNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleTaskNotFoundException(
+            TaskNotFoundException ex, WebRequest request) {
+        log.debug("Task not found: {}", ex.getMessage());
         return error(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 

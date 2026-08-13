@@ -8,9 +8,9 @@ import dev.langchain4j.model.anthropic.AnthropicStreamingChatModel;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import io.workflowai.adapter.out.chat.provider.AbstractChatProvider;
-import io.workflowai.domain.exceptions.ChatProviderCallException;
-import io.workflowai.domain.agent.ChatProviderId;
 import io.workflowai.application.port.out.ChatCompletionRequest;
+import io.workflowai.domain.agent.ChatProviderId;
+import io.workflowai.domain.exceptions.ChatProviderCallException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -64,12 +64,12 @@ public class AnthropicProvider extends AbstractChatProvider {
     public String call(ChatCompletionRequest request) {
         String model = resolveModel(request.model(), properties.defaultModel());
         List<ChatMessage> messages = buildMessages(request);
-        ChatModel chat = model.equals(properties.defaultModel())
+        ChatModel chatModel = model.equals(properties.defaultModel())
                 ? getDefaultChatModel(properties.defaultModel(), properties.defaultTemperature())
                 : buildChatModel(model, request.temperature());
         log.debug("Calling Anthropic model [{}]", model);
         try {
-            return extractText(chat.chat(messages));
+            return extractText(chatModel.chat(messages));
         } catch (Exception ex) {
             throw new ChatProviderCallException(getId(), "Sync call failed for model [%s]".formatted(model), ex);
         }
@@ -77,25 +77,37 @@ public class AnthropicProvider extends AbstractChatProvider {
 
     @Override
     protected ChatModel buildChatModel(String model, double temperature) {
-        return AnthropicChatModel.builder()
+        if (chatModelMap.containsKey(model)) return chatModelMap.get(model);
+
+        ChatModel chatModel = AnthropicChatModel.builder()
                 .baseUrl(properties.baseUrl)
                 .apiKey(properties.apiKey())
                 .modelName(model)
                 .temperature(temperature)
                 .build();
+
+        chatModelMap.put(model, chatModel);
+
+        return chatModel;
     }
 
     @Override
     protected StreamingChatModel buildStreamingModel(String model, double temperature) {
-        return AnthropicStreamingChatModel.builder()
+        if (streamingChatModelMap.containsKey(model)) return streamingChatModelMap.get(model);
+
+        StreamingChatModel streamingChatModel = AnthropicStreamingChatModel.builder()
                 .baseUrl(properties.baseUrl)
                 .apiKey(properties.apiKey())
                 .modelName(model)
                 .temperature(temperature)
                 .build();
+
+        streamingChatModelMap.put(model, streamingChatModel);
+
+        return streamingChatModel;
     }
 
-    @ConfigurationProperties(prefix = "langchain4j.providers.anthropic")
+    @ConfigurationProperties(prefix = "langchain4j.anthropic")
     public record AnthropicProperties(String baseUrl, String apiKey, String defaultModel,
                                       double defaultTemperature, Set<String> supportedModels) {
 

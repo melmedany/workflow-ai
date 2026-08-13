@@ -14,9 +14,12 @@ import io.workflowai.domain.workflow.WorkflowState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
+import java.time.Duration;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+
+import static io.workflowai.domain.task.ConversationTask.TaskSchedule.ScheduleType;
 
 public class CreateTaskStage implements WorkflowStage {
 
@@ -50,19 +53,19 @@ public class CreateTaskStage implements WorkflowStage {
         RoutingDecision decision = state.routingDecision()
                 .orElseThrow(() -> new IllegalStateException("CREATE_TASK reached without a routing decision"));
 
-        String instruction = decision.scheduleInstruction();
-        if (instruction == null || instruction.isBlank() || SchedulingIntentDetector.resemblesSchedulingRequest(instruction)) {
-            return refuse(state, "Tasks cannot schedule other tasks", decision.extractedIntent());
+        String instruction = SchedulingIntentDetector.cleanInstruction(decision.scheduleInstruction());
+        if (instruction == null || instruction.isBlank()) {
+            return refuse(state, "Task instruction cannot be extracted or schedule other tasks", decision.extractedIntent());
         }
 
         try {
             ConversationTask task = taskUseCase.createOrUpdate(state.agentProperties().id(), state.conversationId(),
-                    instruction, decision.cronExpression(), decision.runOnceAt() != null ? Instant.parse(decision.runOnceAt()) : null);
+                    instruction, ScheduleType.valueOf(decision.scheduleType()), Duration.parse(decision.duration()));
 
             workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.CREATE_TASK));
             String finalResponse = persistResponseStage.finalizeResponse(state, confirmationMessage(task));
             return Map.of(WorkflowState.KEY_GENERATED_RESPONSE, finalResponse, WorkflowState.KEY_VALIDATION_PASSED, true);
-        } catch (InvalidScheduleException ex) {
+        } catch (InvalidScheduleException | DateTimeParseException ex) {
             log.debug("[{}] Schedule could not be parsed: {}", state.agentProperties().id(), ex.getMessage());
             return clarify(state, ex.getMessage(), decision.extractedIntent());
         } catch (ScheduleTooFrequentException ex) {

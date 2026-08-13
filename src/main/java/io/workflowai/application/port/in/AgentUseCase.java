@@ -10,9 +10,15 @@ import java.util.function.Consumer;
 
 public interface AgentUseCase {
 
-    Agent get(UUID id);
-
     UUID trigger(AgentRequest request, Consumer<WorkflowEvent> eventConsumer);
 
+    Agent getEnabledAgent(UUID agentId);
+
     List<Agent> getEnabledAgents();
+
+    void reload(UUID agentId);
+
+    void remove(UUID agentId);
+
+    String workflowDiagram(UUID agentId);
 }

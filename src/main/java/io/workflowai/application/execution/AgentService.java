@@ -2,19 +2,23 @@ package io.workflowai.application.execution;
 
 import io.workflowai.application.execution.workflow.WorkflowFactory;
 import io.workflowai.application.port.in.AgentUseCase;
+import io.workflowai.application.port.in.ConversationUseCase;
 import io.workflowai.application.port.out.AgentDefinitionStorage;
 import io.workflowai.application.port.out.AgentRunTracker;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
 import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.agent.AgentProperties;
-import io.workflowai.domain.exceptions.AgentNotFoundException;
+import io.workflowai.domain.exceptions.AgentNotEnabledException;
 import io.workflowai.domain.workflow.Workflow;
 import io.workflowai.domain.workflow.WorkflowEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 public class AgentService implements AgentUseCase {
@@ -25,29 +29,26 @@ public class AgentService implements AgentUseCase {
     private final WorkflowFactory workflowFactory;
     private final AgentRunTracker agentRunTracker;
     private final WorkflowEventStreamer workflowEventStreamer;
+    private final ConversationUseCase conversationService;
+
+    private final Map<UUID, Agent> agentsMap = new ConcurrentHashMap<>();
 
     public AgentService(
             AgentDefinitionStorage definitionStoragePort,
             WorkflowFactory workflowFactory,
             AgentRunTracker agentRunTracker,
-            WorkflowEventStreamer workflowEventStreamer) {
+            WorkflowEventStreamer workflowEventStreamer,
+            ConversationUseCase conversationService) {
         this.definitionStoragePort = definitionStoragePort;
         this.workflowFactory = workflowFactory;
         this.agentRunTracker = agentRunTracker;
         this.workflowEventStreamer = workflowEventStreamer;
-    }
-
-    @Override
-    public Agent get(UUID id) {
-        return definitionStoragePort.findById(id)
-                .map(this::createAgent)
-                .orElseThrow(() -> new AgentNotFoundException(id));
-
+        this.conversationService = conversationService;
     }
 
     @Override
     public UUID trigger(AgentRequest request, Consumer<WorkflowEvent> eventConsumer) {
-        Agent agent = get(request.agentId());
+        Agent agent = getAgent(request.agentId());
 
         UUID runId = agentRunTracker.start(request.triggerSource(), agent.properties().id(), request.conversationId(), request.taskId());
         workflowEventStreamer.registerConsumer(runId, eventConsumer);
@@ -66,44 +67,63 @@ public class AgentService implements AgentUseCase {
     }
 
     @Override
-    public List<Agent> getEnabledAgents() {
-        return definitionStoragePort.findEnabledAgents().stream()
-                .map(this::createAgent)
-                .toList();
+    public Agent getEnabledAgent(UUID agentId) {
+        return getAgent(agentId);
     }
 
-    /**
-     * Created agents can be cached instead of creating them on every request. However, that will introduce extra complexity to keep cached agents up to date.
-     * AgentDefinition can be versioned as well to avoid changing the agent in the middle of a request.
-     */
+    @Override
+    public List<Agent> getEnabledAgents() {
+        return new ArrayList<>(agentsMap.values());
+    }
+
+    @Override
+    public void reload(UUID agentId) {
+        AgentDefinition agentDef = definitionStoragePort.findById(agentId);
+
+        if (!agentDef.details().enabled()) {
+            agentsMap.remove(agentId);
+            return;
+        }
+
+        createAgent(agentDef);
+    }
+
+    @Override
+    public void remove(UUID agentId) {
+        conversationService.getConversationsForAgent(agentId)
+                .forEach(conv -> conversationService.deleteConversation(conv.agentId(), conv.id()));
+        agentsMap.remove(agentId);
+    }
+
+    @Override
+    public String workflowDiagram(UUID agentId) {
+        return getAgent(agentId).workflowDiagram();
+    }
+
+    private Agent getAgent(UUID agentId) {
+        if (agentsMap.containsKey(agentId)) {
+            return agentsMap.get(agentId);
+        }
+
+        AgentDefinition agentDef = definitionStoragePort.findById(agentId);
+
+        if (!agentDef.details().enabled()) throw new AgentNotEnabledException(agentId);
+
+        return createAgent(agentDef);
+    }
+
     private Agent createAgent(AgentDefinition definition) {
         AgentProperties agentProperties = toAgentProperties(definition);
         Workflow workflow = workflowFactory.build(agentProperties.workflowId(), agentProperties);
 
         log.debug("Initialising agent [{}] with chat provider [{}] and workflowPolicy [{}]",
                 agentProperties.displayName(), agentProperties.chatProviderId(), agentProperties.workflowPolicy());
-        return new Agent() {
-            @Override
-            public AgentProperties properties() {
-                return agentProperties;
-            }
 
-            @Override
-            public List<String> tags() {
-                return agentProperties.workflowPolicy().supportedCapabilities();
-            }
+        Agent agent = new DefaultAgent(agentProperties, workflow);
 
-            @Override
-            public String workflowDiagram() {
-                return workflow.diagram("%s Workflow Diagram".formatted(agentProperties.workflowId().name()));
-            }
+        agentsMap.put(agent.properties().id(), agent);
 
-            @Override
-            public void execute(UUID runId, AgentRequest request) {
-                log.debug("Agent [{}] executing request for conversation [{}]", agentProperties.id(), request.conversationId());
-                workflow.execute(runId, request.conversationId(), request.triggerSource(), request.message());
-            }
-        };
+        return agent;
     }
 
     private AgentProperties toAgentProperties(AgentDefinition definition) {
@@ -119,5 +139,29 @@ public class AgentService implements AgentUseCase {
                 definition.chatProperties().agentPrompt(),
                 definition.chatProperties().memoryEnabled(),
                 definition.workflowPolicy());
+    }
+
+    private record DefaultAgent(AgentProperties properties, Workflow workflow) implements Agent {
+
+        @Override
+        public AgentProperties properties() {
+            return properties;
+        }
+
+        @Override
+        public List<String> tags() {
+            return properties.workflowPolicy().supportedCapabilities();
+        }
+
+        @Override
+        public String workflowDiagram() {
+            return workflow.diagram("%s Workflow Diagram".formatted(properties.workflowId().name()));
+        }
+
+        @Override
+        public void execute(UUID runId, AgentRequest request) {
+            log.debug("Agent [{}] executing request for conversation [{}]", properties.id(), request.conversationId());
+            workflow.execute(runId, request.conversationId(), request.triggerSource(), request.message());
+        }
     }
 }

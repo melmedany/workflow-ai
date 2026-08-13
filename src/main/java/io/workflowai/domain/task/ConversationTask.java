@@ -1,13 +1,10 @@
 package io.workflowai.domain.task;
 
-import io.workflowai.domain.exceptions.InvalidScheduleException;
-import org.jobrunr.scheduling.cron.CronExpression;
-import org.jobrunr.scheduling.cron.InvalidCronExpressionException;
-
-import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.UUID;
+
+import static io.workflowai.domain.task.ConversationTask.TaskSchedule.ScheduleType.ONCE;
 
 public record ConversationTask(
         UUID id,
@@ -25,34 +22,42 @@ public record ConversationTask(
         return new ConversationTask(null, agentId, conversationId, definition, schedule, runInfo, null, null);
     }
 
-    public ConversationTask update(String instruction, String cronExpression, Instant runOnceAt) {
+    public ConversationTask update(String instruction, Duration duration) {
         return new ConversationTask(id, agentId, conversationId,
                 new TaskDefinition(definition.name, definition.intentKey, instruction),
-                new TaskSchedule(cronExpression, runOnceAt, schedule.status), runInfo, createdAt, updatedAt);
+                new TaskSchedule(schedule.type, duration, schedule.status), runInfo, createdAt, updatedAt);
     }
 
     public ConversationTask withStatus(TaskStatus newStatus) {
         return new ConversationTask(id, agentId, conversationId, definition,
-                new TaskSchedule(schedule.cronExpression, schedule.runOnceAt, newStatus), runInfo, createdAt, updatedAt);
+                new TaskSchedule(schedule.type, schedule.duration, newStatus), runInfo, createdAt, updatedAt);
+    }
+
+    public ConversationTask withJobId(String jobId) {
+        return new ConversationTask(id, agentId, conversationId, definition,
+                schedule, new TaskRunInfo(jobId, runInfo.lastRunAt, runInfo.lastRunStatus), createdAt, updatedAt);
+    }
+
+    public boolean runOnce() {
+        return schedule.type() == ONCE;
     }
 
     public Instant nextRunAt() {
-        if (schedule.runOnceAt() != null)
-            return schedule.runOnceAt();
+        if (schedule.type() == ONCE) return createdAt.plus(schedule.duration());
 
-        try {
-            return new CronExpression(schedule.cronExpression).next(createdAt, Instant.now(), ZoneId.systemDefault());
-        } catch (InvalidCronExpressionException | DateTimeException ex) {
-            throw new InvalidScheduleException("Could not parse cron expression [%s]".formatted(schedule.cronExpression), ex);
-        }
+        return runInfo.lastRunAt != null ? runInfo.lastRunAt.plus(schedule.duration()) : createdAt.plus(schedule.duration());
     }
 
     public record TaskDefinition(String name, String intentKey, String instruction) {
     }
 
-    public record TaskSchedule(String cronExpression, Instant runOnceAt, TaskStatus status) {
+    public record TaskSchedule(ScheduleType type, Duration duration, TaskStatus status) {
+
+        public enum ScheduleType {
+            ONCE, RECURRING
+        }
     }
 
-    public record TaskRunInfo(Instant lastRunAt, String lastRunStatus) {
+    public record TaskRunInfo(String jobId, Instant lastRunAt, String lastRunStatus) {
     }
 }

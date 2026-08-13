@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -27,13 +26,10 @@ public class DatabaseAgentDefinitionStorageAdapter implements AgentDefinitionSto
     }
 
     @Override
-    public List<AgentDefinition> findEnabledAgents() {
-        return repository.findEnabledAgents().stream().map(this::toDomain).toList();
-    }
-
-    @Override
-    public Optional<AgentDefinition> findById(UUID agentId) {
-        return repository.findById(agentId).map(this::toDomain);
+    public AgentDefinition findById(UUID agentId) {
+        return repository.findById(agentId)
+                .map(this::toDomain)
+                .orElseThrow(() -> new AgentNotFoundException(agentId));
     }
 
     @Override

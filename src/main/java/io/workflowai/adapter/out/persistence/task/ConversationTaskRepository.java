@@ -1,6 +1,7 @@
 package io.workflowai.adapter.out.persistence.task;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,7 +11,13 @@ import java.util.UUID;
 @Repository
 public interface ConversationTaskRepository extends JpaRepository<ConversationTaskEntity, UUID> {
 
-    Optional<ConversationTaskEntity> findByIntentKey(String intentKey);
+    @Query(value = "SELECT * " +
+            "FROM conversation_tasks " +
+            "WHERE agent_id = :agentId " +
+            "AND conversation_id = :conversationId " +
+            "AND definition ->> 'intentKey' = :intentKey " +
+            "AND schedule ->> 'status' = 'ACTIVE'", nativeQuery = true)
+    Optional<ConversationTaskEntity> findTaskToUpdate(UUID agentId, UUID conversationId, String intentKey);
 
     List<ConversationTaskEntity> findByAgentIdAndConversationIdOrderByCreatedAtDesc(UUID agentId, UUID conversationId);
 }

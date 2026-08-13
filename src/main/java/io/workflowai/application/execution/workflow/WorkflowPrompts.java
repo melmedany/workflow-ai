@@ -8,65 +8,69 @@ import io.workflowai.domain.workflow.response.ResponseFormat;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.springframework.util.StringUtils.hasText;
+
 public final class WorkflowPrompts {
 
     public static final String CLASSIFICATION_SYSTEM_PROMPT = """
             You are a workflow classification assistant. Your task is to evaluate user requests and produce a routing decision.
             You MUST respond with a single valid JSON object matching this exact schema, with no additional text,
-            no markdown code fences, and no explanation before or after the JSON.
+            no markdown code fence (no ``` characters), and no explanation before or after the JSON.
+            Evaluate whether the User input qualifies with the provided "Supported capabilities". If it requests an action not
+            explicitly allowed, set "decisionMode" to "REFUSE" and explain why in "reason".
+
+            The caller provides a "scheduleMode" variable:
+            - "OFF": classify the request using the normal routing rules. Scheduling fields MUST all be null.
+            - "ON": apply both the normal routing rules and the scheduling rules below. Populate scheduling fields when
+              the request contains a valid scheduling instruction; otherwise keep them null.
+
+            Unified schema (include ALL of these fields in every response):
             {
               "decisionMode": "<one of: EXECUTE, CLARIFY, REDIRECT, REFUSE, GREET>",
               "detectedTopics": ["topic1", "topic2"],
               "extractedIntent": "brief description of what the user wants",
               "clarificationQuestion": "question to ask the user, only set when decisionMode is CLARIFY, otherwise null",
-              "reason": "brief reason for this decision"
-            }
-            decisionMode must be exactly one of these five literal strings: EXECUTE, CLARIFY, REDIRECT, REFUSE, GREET.
-            Decision rules:
-            - EXECUTE: request is clearly within scope and actionable
-            - CLARIFY: request is in scope but missing required information
-            - REDIRECT: request contains mixed content (some in scope, some not)
-            - REFUSE: request is completely out of scope or unsafe
-            - GREET: request is a greeting or small talk with no task content
-
-            Example output:
-            {"decisionMode":"EXECUTE","detectedTopics":["weather"],"extractedIntent":"get tomorrow's forecast","clarificationQuestion":null,"reason":"clear, in-scope request"}
-            """;
-
-    public static final String SCHEDULING_CLASSIFICATION = """
-            You are extracting the details of a recurring or one-time scheduled task from a user's message.
-            The request has already been classified as EXECUTE or CLARIFY and confirmed to be a /schedule request.
-            You MUST respond with a single valid JSON object matching this exact schema, with no additional text,
-            no markdown code fences, and no explanation before or after the JSON.
-            {
-              "decisionMode": "<one of: EXECUTE, CLARIFY, REFUSE>",
-              "clarificationQuestion": "question to ask the user, only set when decisionMode is CLARIFY, otherwise null",
               "reason": "brief reason for this decision",
-              "cronExpression": "5-field UNIX cron expression, only set for recurring schedules, otherwise null",
-              "runOnceAt": "ISO 8601 date-time (YYYY-MM-DDTHH:mm:ss.sssZ), only set for one-time schedules, otherwise null",
-              "scheduleInstruction": "plain-text instruction to run on each occurrence, with no timing/frequency wording, otherwise null"
+              "scheduleType": "<one of: ONCE, RECURRING, null when scheduleMode is OFF or the request is not schedulable>",
+              "duration": "An ISO-8601 duration string. Examples: 'PT45M' (45 mins), 'PT1H30M' (1.5 hours), 'P2D' (2 days), null when scheduleMode is OFF or no relative schedule duration applies",
+              "scheduleInstruction": "plain-text instruction to run on each occurrence, with no timing/frequency wording, null when scheduleMode is OFF or the request is not schedulable"
             }
 
-            Current date and time: %s
-            
-            Rules:
-            1. Exactly one of cronExpression or runOnceAt must be set — never both, never neither, unless decisionMode is CLARIFY or REFUSE (then both null).
-            2. cronExpression must have EXACTLY 5 space-separated fields (minute hour day-of-month month day-of-week). Never 6 or 7 fields. Never use "?" — use "*" for unrestricted fields.
-            3. Ignore end-time/duration phrases ("for the next hour", "until tomorrow") when building cronExpression — extract only the recurring pattern.
-            4. scheduleInstruction must never contain timing or frequency wording.
-            5. decisionMode CLARIFY (with a natural clarificationQuestion) when frequency or instruction is missing or ambiguous.
-            6. decisionMode REFUSE when:
-               - the instruction is itself a request to create/modify another recurring/scheduled task, or
-               - the requested frequency is invalid (e.g. sub-minute intervals), or
-               - the instruction falls outside the agent's supported capabilities listed below — this check applies
-                 every time, since this instruction will be re-run automatically without further review.
-    
-            Examples:
-            Input: "every 2 minutes say hello to the user"
-            Output: {"decisionMode":"EXECUTE","clarificationQuestion":null,"reason":"clear recurring schedule, within capabilities","cronExpression":"*/2 * * * *","runOnceAt":null,"scheduleInstruction":"Say hello to the user"}
-    
-            Input (agent capabilities: "weather lookups only"): "every day at 8am check my email for invoices"
-            Output: {"decisionMode":"REFUSE","clarificationQuestion":null,"reason":"email access is outside this agent's supported capabilities","cronExpression":null,"runOnceAt":null,"scheduleInstruction":null}
+            decisionMode rules:
+            - EXECUTE: request is clearly within scope and actionable.
+            - CLARIFY: request is in scope but missing required information. In scheduleMode ON, use this when the core action
+              or target execution time is completely ambiguous.
+            - REDIRECT: request contains mixed content (some in scope, some not).
+            - REFUSE: request is completely out of scope or unsafe. In scheduleMode ON, also refuse a scheduling instruction that
+              attempts to create or modify another recurring task, uses an invalid frequency (for example, sub-minute intervals),
+              or falls outside the agent's supported capabilities. These checks apply every time because scheduled instructions
+              will run automatically without further review.
+            - GREET: request is a greeting or small talk with no task content.
+
+            Scheduling rules (apply ONLY when scheduleMode is ON):
+            1. Classify "scheduleType" as "ONCE" for a single future event or "RECURRING" for a repeating pattern.
+               If a scheduling request is present but the recurrence pattern is unclear, default to "ONCE".
+            2. Extract a relative time period into "duration" using strict ISO-8601 format (for example, "PT2M").
+            3. CRITICAL: Clean "scheduleInstruction" by removing raw timing, frequency, and scheduling command-prefix wording.
+               Example: "every 5 mins run backup" becomes "Run backup".
+            4. "scheduleInstruction" must contain only the action to execute, not when, how often, or scheduling metadata.
+            5. For a valid scheduling request, apply the same capability check as a normal request before returning EXECUTE.
+            6. When scheduleMode is OFF, do not infer or populate any scheduling fields even if the user mentions a schedule.
+
+            When scheduleMode is OFF, example output:
+            {"decisionMode":"EXECUTE","detectedTopics":["weather"],"extractedIntent":"get tomorrow's forecast","clarificationQuestion":null,"reason":"clear, in-scope request","scheduleType":null,"duration":null,"scheduleInstruction":null}
+
+            When scheduleMode is ON, example output:
+            Input String: "every 2 minutes say hello to the user"
+            Output JSON: {"decisionMode":"EXECUTE","detectedTopics":["say hello"],"extractedIntent":"Say hello to the user","clarificationQuestion":null,"reason":"Valid recurring schedule within capabilities","scheduleType":"RECURRING","duration":"PT2M","scheduleInstruction":"Say hello to the user"}
+
+            When scheduleMode is ON, example output:
+            Input String: "update my calendar in 15 minutes"
+            Output JSON: {"decisionMode":"EXECUTE","detectedTopics":["Update my calendar"],"extractedIntent":"Update my calendar","clarificationQuestion":null,"reason":"Valid one-time future offset","scheduleType":"ONCE","duration":"PT15M","scheduleInstruction":"Update my calendar"}
+
+            When scheduleMode is ON, example output:
+            Input String: "every day check my email" (Given capabilities: "weather lookups only")
+            Output JSON: {"decisionMode":"REFUSE","detectedTopics":["check email"],"extractedIntent":"check user's email","clarificationQuestion":null,"reason":"Email operations fall outside allowed weather lookups capabilities","scheduleType":null,"duration":null,"scheduleInstruction":null}
             """;
 
     public static final String GUARDRAIL_FALLBACK_MESSAGE =
@@ -76,21 +80,20 @@ public final class WorkflowPrompts {
     }
 
     public static String classificationPrompt(UUID agentId, WorkflowPolicy policy, String userMessage) {
-        String capabilitiesList = String.join(", ", policy.supportedCapabilities());
-        return """
-                Agent: %s
-                Supported capabilities: %s
-                User input: %s
-                """.formatted(agentId, capabilitiesList, userMessage);
+        return classificationPrompt(agentId, policy, userMessage, false);
     }
 
     public static String classificationPrompt(UUID agentId, WorkflowPolicy policy, String userMessage,
                                                boolean schedulingRequested) {
-        String base = classificationPrompt(agentId, policy, userMessage);
-        if (!schedulingRequested) {
-            return base;
-        }
-        return base + "\n" + SCHEDULING_CLASSIFICATION.formatted(Instant.now());
+        String capabilitiesList = String.join(", ", policy.supportedCapabilities());
+        String scheduleMode = schedulingRequested ? "ON" : "OFF";
+        return """
+                Agent: %s
+                Supported capabilities: %s
+                scheduleMode: %s
+                User input: %s
+                Current date and time: %s
+                """.formatted(agentId, capabilitiesList, scheduleMode, userMessage, Instant.now());
     }
 
     public static String clarificationPrompt(String userMessage) {
@@ -123,7 +126,7 @@ public final class WorkflowPrompts {
 
                 Latest agent response:
                 %s
-                """.formatted(blankIfNull(previousMemory), userMessage, response);
+                """.formatted(hasText(previousMemory) ? previousMemory : "", userMessage, response);
     }
 
     public static String retryPrompt(String userMessage, String previousResponse, String failureReason) {
@@ -167,12 +170,8 @@ public final class WorkflowPrompts {
                 """.formatted(
                 systemPrompt,
                 String.join(", ", policy.supportedCapabilities()),
-                blankIfNull(decision.reason()),
-                blankIfNull(decision.extractedIntent()),
+                hasText(decision.reason()) ? decision.reason() : "",
+                hasText(decision.extractedIntent()) ? decision.extractedIntent() : "",
                 instruction);
-    }
-
-    private static String blankIfNull(String value) {
-        return value == null ? "" : value;
     }
 }

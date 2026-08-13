@@ -2,13 +2,13 @@
 
 ## Introduction
 
-Workflow AI is a platform for building scoped, predictable agents. Every agent runs the same fixed graph: the request is
+Workflow AI is a platform for building scoped, predictable agents. Every agent runs a fixed graph: the request is
 classified first, then routed to exactly one generation path, then verified, persisted, and returned. The set of things
 an agent can do with a request is enumerable before the request arrives: execute, schedule a task, clarify, greet,
 redirect, or refuse. Nothing in the graph lets a model choose its own control flow.
 
 Each step of that graph can use a different model. Classification, clarification, greeting, redirect, refusal, and
-memory compaction are configured per stage in `application.yml` and typically point at a small local model. The agent's
+memory compaction are configured per stage via `application.yml` and typically point at a small local model. The agent's
 own configured model is used only for the work the agent exists to do. Model choice per stage is a configuration value,
 not an emergent property of a prompt.
 
@@ -78,7 +78,7 @@ and for JSON an optional list of required top-level fields.
 after the visible turn completes.
 
 **ConversationTask**: a standing instruction attached to one `(agent, conversation)` pair: the instruction to run, an
-intent key used to deduplicate it, either a cron expression or a single run instant, a status (`ACTIVE`,
+intent key used to deduplicate it, a schedule type (`ONCE`, `RECURRING`), a duration `PT5M`, a status (`ACTIVE`,
 `PAUSED`, `COMPLETED`, `CANCELLED`), and last-run information.
 
 **TriggerSource**: who started a run. `USER_MESSAGE` means a person sent a chat message. `SYSTEM_TRIGGER` means the
@@ -174,18 +174,18 @@ Three details of the graph are worth stating because the diagram alone can misle
 
 - There is no separate schedule-extraction node. When a message starts with `/schedule`, the prefix is stripped, a
   `schedulingRequested` flag is set on the state, and `CLASSIFICATION` runs with schedule-extraction rules appended to
-  its prompt, returning the cron expression or run instant alongside the decision.
+  its prompt, returning the schedule type and duration alongside the decision.
 - `PERSIST_RESPONSE` is not a node. It is a helper that every terminal stage calls, so the response is saved before any
   of it is emitted.
 - `CREATE_TASK` can re-route. It re-enters `GENERATE_CLARIFICATION` or `GENERATE_REFUSAL` when the extracted schedule
   cannot be used, which is why those two nodes have inbound edges from two places.
 
 Three frameworks carry most of the weight, and each one is confined to a single concern. LangChain4j provides the
-per-provider chat and streaming chat models and the input/output guardrail interfaces, which is why guard railing happens
-at the provider boundary rather than as its own stage. LangGraph4j compiles the stage graph and executes it and also
-renders it as Mermaid, which is how the admin UI stays in sync with the real graph rather than a drawing of it. JobRunr
-runs the scheduled tasks, storing their own state in the same PostgreSQL instance under a separate schema. The full
-technology list lives in [SETUP.md](SETUP.md).
+per-provider chat and streaming chat models and the input/output guardrail interfaces, which is why guard railing
+happens at the provider boundary rather than as its own stage. LangGraph4j compiles the stage graph and executes it and
+also renders it as Mermaid, which is how the admin UI stays in sync with the real graph rather than a drawing of it.
+JobRunr runs the scheduled tasks, storing their own state in the same PostgreSQL instance under a separate schema. The
+full technology list lives in [SETUP.md](SETUP.md).
 
 ---
 
@@ -273,7 +273,7 @@ sequenceDiagram
     Note over Graph: The /schedule prefix is stripped and recorded<br/>as schedulingRequested on the workflow state
     Graph ->> DB: PERSIST_USER_MESSAGE, then LOAD_MEMORY
     Graph ->> LLM: CLASSIFICATION with schedule-extraction rules appended
-    LLM -->> Graph: decisionMode, cronExpression or runOnceAt, scheduleInstruction
+    LLM -->> Graph: decisionMode, schedule type, duration, scheduleInstruction
     alt REFUSE — instruction outside supported capabilities
         Graph ->> LLM: GENERATE_REFUSAL
         Graph -->> Client: Refusal, no task created
@@ -287,7 +287,7 @@ sequenceDiagram
         Note over Graph: Refuses here too if the run is system-triggered,<br/>or if the extracted instruction still reads as a schedule
         Graph ->> Tasks: createOrUpdate
         Tasks ->> DB: Upsert by intent key within the conversation
-        Tasks ->> Jobs: schedule once, or scheduleRecurrently for a cron
+        Tasks ->> Jobs: schedule once, or recurrently with given duration
         Graph ->> DB: PERSIST_RESPONSE saves the confirmation
         Graph -->> Client: Confirmation text
     end
@@ -336,11 +336,11 @@ sequenceDiagram
 Two consequences of bypassing classification are worth being explicit about. The run's capability scope is not
 re-checked at fire time; the only gate is that the task is still `ACTIVE`, and scope was settled when the task was
 created. And `CREATE_TASK` is unreachable on this path, so a scheduled run cannot schedule anything — belt and braces,
-since `CREATE_TASK` also refuses system-triggered runs if it is ever reached another way. Guardrails still apply,
-because they live in the provider call: blocked input makes `EXECUTE_WORKFLOW` return the agent's fallback message.
+since `CREATE_TASK` also refuses system-triggered runs if it is ever reached another way. Guardrails still apply because
+they live in the provider call: blocked input makes `EXECUTE_WORKFLOW` return the agent's fallback message.
 
 The result is visible in the conversation the task belongs to. `NotificationChannel` exists as a port for pushing it
-somewhere else, but has no implementation, so nothing is sent out of band.
+somewhere else, but has no implementation yet.
 
 ### Admin
 
@@ -382,7 +382,7 @@ and `BonzaiProvider` both build on it, and Bonzai adds nothing beyond its own co
 To add one: add a value to `ChatProviderId`, add a `@Component` extending `AbstractOpenAiProvider` for an
 OpenAI-compatible endpoint or `AbstractChatProvider` otherwise, give it a nested `@ConfigurationProperties` record with
 base URL, key, default model, default temperature, and supported models, and add the matching block to
-`application.yml` — note that the existing providers are split between `langchain4j.providers.*` and, for Bonzai,
+`application.yml` — note that the existing providers are split between `langchain4j.*` and, for Bonzai,
 `workflow-ai.providers.bonzai`, so follow whichever prefix your record declares. `ChatProviderRegistry` collects every
 `ChatProvider` bean by id, so nothing needs registering by hand; the new provider immediately appears in the admin
 dropdowns and can be selected per agent and per stage.
@@ -497,8 +497,7 @@ already persisted, not model-paced output.
 - **Notifications go nowhere.** `NotificationChannel` has no implementation, so `COMPLETE`'s fan-out is a no-op and a
   scheduled result is only visible in its conversation.
 - **Schedule validation leans entirely on the classifier prompt.** `CREATE_TASK` routes to `CLARIFY` on
-  `InvalidScheduleException` and to `REFUSE` on `ScheduleTooFrequentException`, but nothing in the creation path raises
-  either — `ScheduleTooFrequentException` is thrown only in tests. A malformed cron expression or
+  `InvalidScheduleException` and to `REFUSE` on `ScheduleTooFrequentException`. A malformed duration expression or
   `runOnceAt` value that gets past the model fails the run instead of being clarified.
 - **Memory compaction can race the next turn.** Compaction runs on a virtual thread after the response is emitted, so a
   fast follow-up message may load the previous memory blob.

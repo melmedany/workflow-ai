@@ -12,23 +12,23 @@ import java.util.stream.Collectors;
 
 public class ChatProviderRegistry {
 
-    private final Map<ChatProviderId, ChatProvider> providers;
+    private final Map<ChatProviderId, ChatProvider> chatProviders;
 
     public ChatProviderRegistry(List<ChatProvider> providerList) {
-        this.providers = providerList.stream()
+        this.chatProviders = providerList.stream()
                 .collect(Collectors.toConcurrentMap(ChatProvider::getId, Function.identity()));
     }
 
     public ChatProvider get(ChatProviderId providerId) {
-        ChatProvider provider = providers.get(providerId);
+        ChatProvider provider = chatProviders.get(providerId);
         if (provider == null) {
-            throw new IllegalArgumentException("Unknown provider: %s. Available: %s".formatted(providerId, providers.keySet()));
+            throw new IllegalArgumentException("Unknown provider: %s. Available: %s".formatted(providerId, chatProviders.keySet()));
         }
         return provider;
     }
 
     public Map<ChatProviderId, Set<String>> supportedChatProviders() {
-        return providers.values().stream()
+        return chatProviders.values().stream()
                 .collect(Collectors.toMap(ChatProvider::getId, ChatProvider::supportedModels));
     }
 

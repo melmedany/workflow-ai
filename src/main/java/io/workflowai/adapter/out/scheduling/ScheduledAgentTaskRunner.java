@@ -13,7 +13,6 @@ import java.util.UUID;
 
 @Service
 public class ScheduledAgentTaskRunner {
-
     private static final Logger log = LoggerFactory.getLogger(ScheduledAgentTaskRunner.class);
 
     private final ConversationTaskStorage storage;
@@ -24,24 +23,25 @@ public class ScheduledAgentTaskRunner {
         this.agentUseCase = agentUseCase;
     }
 
-    public void run(UUID taskId) {
-        ConversationTask task = storage.findById(taskId).orElse(null);
+    public void run(UUID agentId, UUID conversationId, UUID taskId) {
+        ConversationTask task = storage.findTask(agentId, conversationId, taskId).orElse(null);
         if (task == null || task.schedule().status() != TaskStatus.ACTIVE) {
             log.debug("Skipping scheduled task [{}], not active", taskId);
             return;
         }
 
         UUID runId = agentUseCase.trigger(
-                AgentRequest.systemTrigger(task.agentId(), task.conversationId(), task.id(), task.definition().instruction()),
+                AgentRequest.systemTrigger(task.agentId(), task.conversationId(), task.id(),
+                        "SCHEDULED: %s".formatted(task.definition().instruction())),
                 _ -> {
                 });
 
-        if (task.schedule().runOnceAt() != null) {
-            storage.updateAfterRun(taskId, runId);
-            storage.updateStatus(taskId, TaskStatus.COMPLETED);
+        if (task.runOnce()) {
+            storage.updateAfterRun(task.agentId(), task.conversationId(), taskId, runId);
+            storage.updateStatus(task.agentId(), task.conversationId(), taskId, TaskStatus.COMPLETED);
             return;
         }
 
-        storage.updateAfterRun(taskId, runId);
+        storage.updateAfterRun(task.agentId(), task.conversationId(), taskId, runId);
     }
 }
