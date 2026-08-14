@@ -17,13 +17,13 @@ public enum StageId {
     COMPACT_MEMORY(false),
     COMPLETE(true);
 
-    private final boolean agentFacing;
+    private final boolean userFacing;
 
-    StageId(boolean agentFacing) {
-        this.agentFacing = agentFacing;
+    StageId(boolean userFacing) {
+        this.userFacing = userFacing;
     }
 
-    public boolean isAgentFacing() {
-        return agentFacing;
+    public boolean isUserFacing() {
+        return userFacing;
     }
 }

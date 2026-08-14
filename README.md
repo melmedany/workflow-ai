@@ -44,28 +44,28 @@ the unit an admin edits and the unit a chat request is addressed to.
 routing, the response contract, and the fallback message used when a response cannot be generated.
 
 **Stage**: one step of a workflow. Every stage implements `WorkflowStage`, reads `WorkflowState`, and returns the keys
-it wants updated. Each `StageId` is either agent-facing (visible to clients over SSE) or infrastructure (server-side
+it wants updated. Each `StageId` is either user-facing (visible to clients over SSE) or infrastructure (server-side
 only).
 
 The stages that exist today:
 
-| Stage                    | Graph node         | Agent-facing | Definition                                                                              |
-|--------------------------|--------------------|--------------|-----------------------------------------------------------------------------------------|
-| `PERSIST_USER_MESSAGE`   | yes                | no           | Stores the incoming message on the conversation.                                        |
-| `LOAD_MEMORY`            | yes                | no           | Reads the conversation's compact memory blob when memory is enabled.                    |
-| `CLASSIFICATION`         | yes                | yes          | Produces the routing decision; also extracts schedule details for `/schedule` requests. |
-| `EXECUTE_WORKFLOW`       | yes                | yes          | Runs the agent's own model against the request.                                         |
-| `CREATE_TASK`            | yes                | yes          | Creates or updates the scheduled task for the conversation.                             |
-| `GENERATE_CLARIFICATION` | yes                | yes          | Produces a single clarifying question.                                                  |
-| `GENERATE_GREETING`      | yes                | yes          | Produces a short greeting stating what the agent can help with.                         |
-| `GENERATE_REDIRECT`      | yes                | yes          | Points a mixed-scope request at its in-scope part.                                      |
-| `GENERATE_REFUSAL`       | yes                | yes          | Declines an out-of-scope or unsafe request.                                             |
-| `SELF_VERIFICATION`      | yes                | yes          | Checks the generated response against the response contract and retries once.           |
-| `PERSIST_RESPONSE`       | no — shared helper | no           | Saves the final response and emits it, called by every stage that produces one.         |
-| `COMPACT_MEMORY`         | yes                | no           | Rewrites the conversation's memory blob after the visible turn.                         |
-| `COMPLETE`               | yes                | yes          | Closes the turn and hands the result to notification channels.                          |
-| `GUARDRAIL_INPUT`        | no                 | no           | Declared with a label but never emitted; guardrailing happens inside the provider call. |
-| `GUARDRAIL_OUTPUT`       | no                 | no           | Declared with a label but never emitted; guardrailing happens inside the provider call. |
+| Stage                    | Graph node         | User facing | Definition                                                                              |
+|--------------------------|--------------------|-------------|-----------------------------------------------------------------------------------------|
+| `PERSIST_USER_MESSAGE`   | yes                | no          | Stores the incoming message on the conversation.                                        |
+| `LOAD_MEMORY`            | yes                | no          | Reads the conversation's compact memory blob when memory is enabled.                    |
+| `CLASSIFICATION`         | yes                | yes         | Produces the routing decision; also extracts schedule details for `/schedule` requests. |
+| `EXECUTE_WORKFLOW`       | yes                | yes         | Runs the agent's own model against the request.                                         |
+| `CREATE_TASK`            | yes                | yes         | Creates or updates the scheduled task for the conversation.                             |
+| `GENERATE_CLARIFICATION` | yes                | yes         | Produces a single clarifying question.                                                  |
+| `GENERATE_GREETING`      | yes                | yes         | Produces a short greeting stating what the agent can help with.                         |
+| `GENERATE_REDIRECT`      | yes                | yes         | Points a mixed-scope request at its in-scope part.                                      |
+| `GENERATE_REFUSAL`       | yes                | yes         | Declines an out-of-scope or unsafe request.                                             |
+| `SELF_VERIFICATION`      | yes                | yes         | Checks the generated response against the response contract and retries once.           |
+| `PERSIST_RESPONSE`       | no — shared helper | no          | Saves the final response and emits it, called by every stage that produces one.         |
+| `COMPACT_MEMORY`         | yes                | no          | Rewrites the conversation's memory blob after the visible turn.                         |
+| `COMPLETE`               | yes                | yes         | Closes the turn and hands the result to notification channels.                          |
+| `GUARDRAIL_INPUT`        | no                 | no          | Declared with a label but never emitted; guardrailing happens inside the provider call. |
+| `GUARDRAIL_OUTPUT`       | no                 | no          | Declared with a label but never emitted; guardrailing happens inside the provider call. |
 
 **DecisionMode**: the routing verdict a request is reduced to: `GREET`, `EXECUTE`, `EXECUTE_SCHEDULE`, `CLARIFY`,
 `REDIRECT`, `REFUSE`. The classifier only ever returns the other five; `EXECUTE_SCHEDULE` is derived in the graph when
@@ -468,7 +468,7 @@ Event names are the `EventType` constants, upper snake case:
 | Event                    | Data                                                                               | Sent when                                                         |
 |--------------------------|------------------------------------------------------------------------------------|-------------------------------------------------------------------|
 | `CONVERSATION_CREATED`   | conversation JSON: `id`, `agentId`, `title`, `createdAt`, `updatedAt`              | Only when the path value was `NEW_CONVERSATION`.                  |
-| `STAGE`                  | `{"stageId","status","label","reason"}`, status `STARTED`, `COMPLETED` or `FAILED` | A stage starts, finishes or fails — agent-facing stages only.     |
+| `STAGE`                  | `{"stageId","status","label","reason"}`, status `STARTED`, `COMPLETED` or `FAILED` | A stage starts, finishes or fails — user-facing stages only.      |
 | `DECISION`               | `{"mode","reason"}`                                                                | Classification produced a routing decision.                       |
 | `TOKEN`                  | `text/plain` fragment                                                              | Each chunk of the final response.                                 |
 | `RESPONSE_COMPLETED`     | `{}`                                                                               | The response text is complete.                                    |

@@ -176,7 +176,7 @@ or `./gradlew build` to compile and test together.
   with a `@MockitoBean` returning a stub provider, so classification and generation are answered in-process and no
   request leaves the JVM. `ScheduleTaskTest` does the same with a stub that returns schedule-extraction JSON. If either
   test ever starts requiring a real Ollama, treat that as a regression rather than a setup problem.
-- The remaining integration tests — `AgentAdminEndpointTest`, `ConversationPersistenceTest`,
+- The remaining integration tests — `AgentDefinitionEndpointTest`, `ConversationPersistenceTest`,
   `MemoryPersistenceTest`, `RunHistoryPersistenceTest` — exercise the admin API and the storage adapters directly and
   never reach a model.
 - Unit tests under `application/execution/stage` cover classification's scheduling behaviour, `CREATE_TASK`'s clarify

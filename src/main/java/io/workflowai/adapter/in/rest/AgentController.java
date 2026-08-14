@@ -43,6 +43,7 @@ import static io.workflowai.adapter.in.rest.dto.EventType.MEMORY_UPDATED;
 import static io.workflowai.adapter.in.rest.dto.EventType.RESPONSE_COMPLETED;
 import static io.workflowai.adapter.in.rest.dto.EventType.STAGE;
 import static io.workflowai.adapter.in.rest.dto.EventType.TOKEN;
+import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.COMPLETED;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.FAILED;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.STARTED;
@@ -149,11 +150,11 @@ public class AgentController {
     private void handleEvent(SseEmitter emitter, WorkflowEvent event) {
         switch (event) {
             case WorkflowEvent.StageStarted e ->
-                    sendStage(emitter, e.stageId(), e.stageId().isAgentFacing(), STARTED, e.label(), null);
+                    sendStage(emitter, e.stageId(), e.stageId().isUserFacing(), STARTED, e.label(), null);
             case WorkflowEvent.StageCompleted e ->
-                    sendStage(emitter, e.stageId(), e.stageId().isAgentFacing(), COMPLETED, e.label(), null);
+                    sendStage(emitter, e.stageId(), e.stageId().isUserFacing(), COMPLETED, e.label(), null);
             case WorkflowEvent.StageFailed e ->
-                    sendStage(emitter, e.stageId(), e.stageId().isAgentFacing(), FAILED, e.label(), e.reason());
+                    sendStage(emitter, e.stageId(), e.stageId().isUserFacing(), FAILED, e.label(), e.reason());
             case WorkflowEvent.DecisionMade e ->
                     sendJson(emitter, DECISION, new DecisionPayload(e.mode().name(), e.reason()));
             case WorkflowEvent.Token e -> sendText(emitter, TOKEN, e.token());
@@ -166,8 +167,9 @@ public class AgentController {
 
     // ── SSE helpers ──────────────────────────────────────────────────────────
 
-    private void sendStage(SseEmitter emitter, StageId stageId, boolean agentFacing, StagePayload.StageStatus status, String label, String reason) {
-        if (agentFacing) {
+    private void sendStage(SseEmitter emitter, StageId stageId, boolean userFacing,
+                           StageStatus status, String label, String reason) {
+        if (userFacing) {
             sendJson(emitter, STAGE, new StagePayload(stageId, status, label, reason));
         }
     }
