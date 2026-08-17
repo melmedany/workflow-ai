@@ -3,7 +3,7 @@ package io.workflowai.domain.workflow;
 public enum StageId {
     GUARDRAIL_INPUT(false),
     PERSIST_USER_MESSAGE(false),
-    LOAD_MEMORY(false),
+    LOAD_MEMORY(true),
     CLASSIFICATION(true),
     EXECUTE_WORKFLOW(true),
     CREATE_TASK(true),
@@ -14,7 +14,7 @@ public enum StageId {
     GUARDRAIL_OUTPUT(false),
     SELF_VERIFICATION(true),
     PERSIST_RESPONSE(false),
-    COMPACT_MEMORY(false),
+    COMPACT_MEMORY(true),
     COMPLETE(true);
 
     private final boolean userFacing;

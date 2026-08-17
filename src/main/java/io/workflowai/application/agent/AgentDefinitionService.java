@@ -48,13 +48,26 @@ public class AgentDefinitionService implements AgentDefinitionUseCase {
     @Override
     public AgentDefinition saveDefinition(AgentDefinition definition) {
         validate(definition);
-        return storagePort.save(definition);
+
+        AgentDefinition created = storagePort.save(definition);
+        agentService.reload(created.agentId());
+
+        return created;
     }
 
     @Override
     public AgentDefinition updateDefinition(AgentDefinition definition) {
         validate(definition);
-        return storagePort.update(definition);
+
+        AgentDefinition updated = storagePort.update(definition);
+        agentService.reload(updated.agentId());
+
+        return updated;
+    }
+
+    @Override
+    public String workflowDiagram(UUID agentId) {
+        return agentService.workflowDiagram(agentId);
     }
 
     private void validate(AgentDefinition definition) {

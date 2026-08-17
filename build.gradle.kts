@@ -33,7 +33,6 @@ dependencies {
     implementation(libs.spring.boot.restclient)
     implementation(libs.spring.boot.data)
     implementation(libs.spring.boot.flyway)
-    implementation(libs.spring.boot.validation)
     implementation(libs.spring.boot.jobrunr)
     implementation(libs.langchain4j.core)
     implementation(libs.langchain4j.ollama)

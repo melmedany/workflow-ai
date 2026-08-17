@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -82,16 +81,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(
             IllegalArgumentException ex, WebRequest request) {
-        log.debug("Invalid argument error: ${e.message}", ex);
-        return error(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValidException(
-            MethodArgumentNotValidException ex, WebRequest request) {
-        log.debug("Validation error in request", ex);
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                log.error("Validation error on field: {}, rejected value: {}", error.getField(), error.getRejectedValue()));
+        log.debug("Invalid argument error: {}", ex.getMessage(), ex);
         return error(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 

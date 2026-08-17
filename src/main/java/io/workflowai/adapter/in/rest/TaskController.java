@@ -58,6 +58,7 @@ public class TaskController {
                 task.conversationId(),
                 task.definition().name(),
                 task.schedule().type().name(),
+                task.schedule().startDateTime(),
                 task.schedule().duration(),
                 task.schedule().status().name(),
                 task.runInfo().lastRunAt(),

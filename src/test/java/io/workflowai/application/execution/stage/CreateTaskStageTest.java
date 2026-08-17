@@ -11,7 +11,7 @@ import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.WorkflowState;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,19 +48,20 @@ class CreateTaskStageTest {
                 any(UUID.class),
                 eq("Summarize open PRs"),
                 eq(ScheduleType.RECURRING),
-                eq(Duration.ofDays(1))))
+                any(Instant.class),
+                eq("P1D")))
                 .thenReturn(task);
 
         Map<String, Object> result = stage.execute(StagesUtil.state(USER_MESSAGE,
-                executeDecision("P1D", "Summarize open PRs")));
+                executeDecision(Instant.now().toString(), "P1D", "Summarize open PRs")));
 
         verify(taskUseCase).createOrUpdate(
                 any(UUID.class),
                 any(UUID.class),
                 eq("Summarize open PRs"),
                 eq(ScheduleType.RECURRING),
-                eq(Duration.ofDays(1)));
-
+                any(Instant.class),
+                eq("P1D"));
         verify(messages).save(
                 any(UUID.class),
                 any(UUID.class),
@@ -74,7 +75,7 @@ class CreateTaskStageTest {
         Map<String, Object> result = stage.execute(
                 StagesUtil.state(
                         SYSTEM_TRIGGER,
-                        executeDecision("P1D", "Summarize open PRs")));
+                        executeDecision(Instant.now().toString(), "P1D", "Summarize open PRs")));
 
         verifyNoInteractions(taskUseCase);
 
@@ -93,22 +94,22 @@ class CreateTaskStageTest {
                 any(UUID.class),
                 eq("every hour, ping me"),
                 eq(ScheduleType.RECURRING),
-                eq(Duration.ofDays(1))))
+                any(Instant.class),
+                eq("P1D")))
                 .thenReturn(task);
 
         Map<String, Object> result = stage.execute(
                 StagesUtil.state(
                         USER_MESSAGE,
-                        executeDecision(
-                                "P1D",
-                                "every hour, ping me")));
+                        executeDecision(Instant.now().toString(), "P1D", "every hour, ping me")));
 
         verify(taskUseCase).createOrUpdate(
                 any(UUID.class),
                 any(UUID.class),
                 eq("every hour, ping me"),
                 eq(ScheduleType.RECURRING),
-                eq(Duration.ofDays(1)));
+                any(Instant.class),
+                eq("P1D"));
 
         assertThat(result)
                 .containsKey(WorkflowState.KEY_GENERATED_RESPONSE)
@@ -123,22 +124,22 @@ class CreateTaskStageTest {
                 any(UUID.class),
                 anyString(),
                 any(ScheduleType.class),
-                any(Duration.class)))
+                any(Instant.class),
+                anyString()))
                 .thenThrow(new InvalidScheduleException("bad duration"));
 
         Map<String, Object> result = stage.execute(
                 StagesUtil.state(
                         USER_MESSAGE,
-                        executeDecision(
-                                "not-a-duration",
-                                "Summarize open PRs")));
+                        executeDecision(Instant.now().toString(), "not-a-duration", "Summarize open PRs")));
 
         verify(taskUseCase, times(0)).createOrUpdate(
                 any(UUID.class),
                 any(UUID.class),
                 eq("Summarize open PRs"),
                 eq(ScheduleType.RECURRING),
-                eq(Duration.ofDays(1)));
+                any(Instant.class),
+                eq("P1D"));
 
         assertThat(decisionMode(result))
                 .isEqualTo(DecisionMode.CLARIFY);
@@ -159,11 +160,12 @@ class CreateTaskStageTest {
                 any(UUID.class),
                 anyString(),
                 any(ScheduleType.class),
-                any(Duration.class)))
+                any(Instant.class),
+                anyString()))
                 .thenThrow(new ScheduleTooFrequentException("too frequent"));
 
         Map<String, Object> result = stage.execute(StagesUtil.state(USER_MESSAGE,
-                executeDecision("PT1S", "Summarize open PRs")));
+                executeDecision(Instant.now().toString(), "PT1S", "Summarize open PRs")));
 
         assertThat(decisionMode(result))
                 .isEqualTo(DecisionMode.REFUSE);
@@ -173,7 +175,8 @@ class CreateTaskStageTest {
                 any(UUID.class),
                 anyString(),
                 eq(ScheduleType.RECURRING),
-                eq(Duration.ofSeconds(1)));
+                any(Instant.class),
+                eq("PT1S"));
     }
 
     private CreateTaskStage stage() {
@@ -183,19 +186,13 @@ class CreateTaskStageTest {
                 List.of());
     }
 
-//    private ConversationTask task() {
-//        return mock();
-//    }
-
     private DecisionMode decisionMode(Map<String, Object> result) {
         return ((RoutingDecision) result
                 .get(WorkflowState.KEY_ROUTING_DECISION))
                 .decisionMode();
     }
 
-    private RoutingDecision executeDecision(
-            String duration,
-            String scheduleInstruction) {
+    private RoutingDecision executeDecision(String startDateTime, String duration, String scheduleInstruction) {
 
         return new RoutingDecision(
                 DecisionMode.EXECUTE,
@@ -204,6 +201,7 @@ class CreateTaskStageTest {
                 null,
                 "clear recurring request",
                 ScheduleType.RECURRING.name(),
+                startDateTime,
                 duration,
                 scheduleInstruction);
     }

@@ -1,18 +1,20 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.domain.workflow.WorkflowStage;
-import io.workflowai.domain.workflow.WorkflowState;
+import io.workflowai.application.execution.workflow.WorkflowPrompts;
 import io.workflowai.application.port.out.ChatCompletionRequest;
+import io.workflowai.application.port.out.WorkflowEventStreamer;
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.StageId;
-import io.workflowai.application.execution.workflow.WorkflowPrompts;
-import io.workflowai.application.port.out.WorkflowEventStreamer;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+
+import static io.workflowai.application.execution.stage.StageSettings.StageSetting;
 
 public class GenerateClarificationStage implements WorkflowStage {
 
@@ -56,7 +58,7 @@ public class GenerateClarificationStage implements WorkflowStage {
     }
 
     private String executeGenerateClarification(WorkflowState state) {
-        StageSettings.StageSetting stageProperties = stagesProperties.get(StageId.GENERATE_CLARIFICATION);
+        StageSetting stageProperties = stagesProperties.get(StageId.GENERATE_CLARIFICATION);
         String prompt = WorkflowPrompts.clarificationPrompt(state.userMessage());
         ChatCompletionRequest request = new ChatCompletionRequest(stageProperties.model(), stageProperties.temperature(), state.systemPrompt(), prompt, state.memoryContext());
         return chatProviderRegistry.get(stageProperties.chatProviderId()).call(request);

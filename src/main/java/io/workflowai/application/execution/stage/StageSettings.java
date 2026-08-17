@@ -5,7 +5,7 @@ import io.workflowai.domain.workflow.StageId;
 
 import java.util.List;
 
-public record StageSettings(List<StageSettings.StageSetting> stages) {
+public record StageSettings(List<StageSetting> stages) {
 
     public StageSetting get(StageId stageId) {
         return stages.stream()

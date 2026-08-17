@@ -13,7 +13,7 @@ public interface ConversationTaskStorage {
 
     ConversationTask update(ConversationTask task);
 
-    Optional<ConversationTask> findTask(UUID agentId, UUID conversationId, UUID taskId);
+    Optional<ConversationTask> findActiveTask(UUID agentId, UUID conversationId, UUID taskId);
 
     List<ConversationTask> findByConversation(UUID agentId, UUID conversationId);
 

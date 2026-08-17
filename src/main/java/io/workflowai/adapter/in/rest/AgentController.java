@@ -47,6 +47,15 @@ import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.COMPLETED;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.FAILED;
 import static io.workflowai.adapter.in.rest.dto.StagePayload.StageStatus.STARTED;
+import static io.workflowai.domain.workflow.WorkflowEvent.ConversationCompleted;
+import static io.workflowai.domain.workflow.WorkflowEvent.DecisionMade;
+import static io.workflowai.domain.workflow.WorkflowEvent.Error;
+import static io.workflowai.domain.workflow.WorkflowEvent.MemoryUpdated;
+import static io.workflowai.domain.workflow.WorkflowEvent.ResponseCompleted;
+import static io.workflowai.domain.workflow.WorkflowEvent.StageCompleted;
+import static io.workflowai.domain.workflow.WorkflowEvent.StageFailed;
+import static io.workflowai.domain.workflow.WorkflowEvent.StageStarted;
+import static io.workflowai.domain.workflow.WorkflowEvent.Token;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE;
 import static org.springframework.http.MediaType.TEXT_PLAIN;
@@ -149,19 +158,19 @@ public class AgentController {
 
     private void handleEvent(SseEmitter emitter, WorkflowEvent event) {
         switch (event) {
-            case WorkflowEvent.StageStarted e ->
+            case StageStarted e ->
                     sendStage(emitter, e.stageId(), e.stageId().isUserFacing(), STARTED, e.label(), null);
-            case WorkflowEvent.StageCompleted e ->
+            case StageCompleted e ->
                     sendStage(emitter, e.stageId(), e.stageId().isUserFacing(), COMPLETED, e.label(), null);
-            case WorkflowEvent.StageFailed e ->
+            case StageFailed e ->
                     sendStage(emitter, e.stageId(), e.stageId().isUserFacing(), FAILED, e.label(), e.reason());
-            case WorkflowEvent.DecisionMade e ->
+            case DecisionMade e ->
                     sendJson(emitter, DECISION, new DecisionPayload(e.mode().name(), e.reason()));
-            case WorkflowEvent.Token e -> sendText(emitter, TOKEN, e.token());
-            case WorkflowEvent.ResponseCompleted ignored -> sendJson(emitter, RESPONSE_COMPLETED, null);
-            case WorkflowEvent.MemoryUpdated ignored -> sendJson(emitter, MEMORY_UPDATED, null);
-            case WorkflowEvent.ConversationCompleted ignored -> sendJson(emitter, CONVERSATION_COMPLETED, null);
-            case WorkflowEvent.Error e -> sendJson(emitter, ERROR, new ErrorPayload(e.message()));
+            case Token e -> sendText(emitter, TOKEN, e.token());
+            case ResponseCompleted ignored -> sendJson(emitter, RESPONSE_COMPLETED, null);
+            case MemoryUpdated ignored -> sendJson(emitter, MEMORY_UPDATED, null);
+            case ConversationCompleted ignored -> sendJson(emitter, CONVERSATION_COMPLETED, null);
+            case Error e -> sendJson(emitter, ERROR, new ErrorPayload(e.message()));
         }
     }
 

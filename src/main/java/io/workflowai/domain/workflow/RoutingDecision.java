@@ -10,12 +10,13 @@ public record RoutingDecision(
         String clarificationQuestion,
         String reason,
         String scheduleType,
+        String startDateTime,
         String duration,
         String scheduleInstruction) implements Serializable {
 
     public RoutingDecision(DecisionMode decisionMode, List<String> detectedTopics, String extractedIntent,
                            String clarificationQuestion, String reason) {
-        this(decisionMode, detectedTopics, extractedIntent, clarificationQuestion, reason, null, null, null);
+        this(decisionMode, detectedTopics, extractedIntent, clarificationQuestion, reason, null, null, null, null);
     }
 
     public static RoutingDecision greet(String reason, String extractedIntent) {

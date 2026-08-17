@@ -14,7 +14,7 @@ import io.workflowai.domain.workflow.WorkflowState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
+import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
@@ -60,12 +60,13 @@ public class CreateTaskStage implements WorkflowStage {
 
         try {
             ConversationTask task = taskUseCase.createOrUpdate(state.agentProperties().id(), state.conversationId(),
-                    instruction, ScheduleType.valueOf(decision.scheduleType()), Duration.parse(decision.duration()));
+                    instruction, ScheduleType.valueOf(decision.scheduleType()), Instant.parse(decision.startDateTime()),
+                    decision.duration());
 
             workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.CREATE_TASK));
             String finalResponse = persistResponseStage.finalizeResponse(state, confirmationMessage(task));
             return Map.of(WorkflowState.KEY_GENERATED_RESPONSE, finalResponse, WorkflowState.KEY_VALIDATION_PASSED, true);
-        } catch (InvalidScheduleException | DateTimeParseException ex) {
+        } catch (DateTimeParseException | IllegalArgumentException | InvalidScheduleException ex) {
             log.debug("[{}] Schedule could not be parsed: {}", state.agentProperties().id(), ex.getMessage());
             return clarify(state, ex.getMessage(), decision.extractedIntent());
         } catch (ScheduleTooFrequentException ex) {

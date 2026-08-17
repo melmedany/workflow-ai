@@ -3,7 +3,6 @@ package io.workflowai.adapter.in.rest;
 import io.workflowai.adapter.in.rest.dto.AgentMapper;
 import io.workflowai.adapter.in.rest.dto.AgentSummaryDto;
 import io.workflowai.application.port.in.AgentDefinitionUseCase;
-import io.workflowai.application.port.in.AgentUseCase;
 import io.workflowai.domain.agent.AgentDefinition;
 import io.workflowai.domain.agent.ChatProviderId;
 import org.springframework.http.MediaType;
@@ -28,11 +27,9 @@ import java.util.UUID;
 public class AgentDefinitionController {
 
     private final AgentDefinitionUseCase agentDefinitionUseCase;
-    private final AgentUseCase agentUseCase;
 
-    public AgentDefinitionController(AgentDefinitionUseCase agentDefinitionUseCase, AgentUseCase agentUseCase) {
+    public AgentDefinitionController(AgentDefinitionUseCase agentDefinitionUseCase) {
         this.agentDefinitionUseCase = agentDefinitionUseCase;
-        this.agentUseCase = agentUseCase;
     }
 
     @GetMapping("/supported-chat-providers")
@@ -54,7 +51,7 @@ public class AgentDefinitionController {
 
     @GetMapping(path = "/{agentId}/workflowDiagram", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> getWorkflowDiagram(@PathVariable UUID agentId) {
-        return ResponseEntity.ok(agentUseCase.workflowDiagram(agentId));
+        return ResponseEntity.ok(agentDefinitionUseCase.workflowDiagram(agentId));
     }
 
     @PostMapping({"", "/"})
@@ -71,9 +68,6 @@ public class AgentDefinitionController {
                 definition.workflowId(),
                 definition.chatProperties(),
                 definition.workflowPolicy()));
-
-        agentUseCase.reload(updated.agentId());
-
         return ResponseEntity.ok(updated);
     }
 

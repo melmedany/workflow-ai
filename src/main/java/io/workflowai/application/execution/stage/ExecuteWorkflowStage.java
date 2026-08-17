@@ -61,7 +61,7 @@ public class ExecuteWorkflowStage implements WorkflowStage {
         } catch (GuardrailBlockedException ex) {
             // Input was blocked at the provider boundary. A retry through SELF_VERIFICATION would
             // hit the exact same block, so short-circuit straight to a final, already-safe response.
-            log.warn("[{}] Input guardrail blocked system-triggered request — returning fallback", agentProperties.id());
+            log.warn("[{}] Input guardrail blocked {} request — returning fallback", state.triggerSource(), agentProperties.id());
             return Map.of(
                     WorkflowState.KEY_GENERATED_RESPONSE, agentProperties.workflowPolicy().failedToProcessMessage(),
                     WorkflowState.KEY_VALIDATION_PASSED, true);

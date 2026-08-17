@@ -3,13 +3,14 @@ package io.workflowai.application.port.in;
 import io.workflowai.domain.task.ConversationTask;
 import io.workflowai.domain.task.ConversationTask.TaskSchedule.ScheduleType;
 
-import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 public interface TaskUseCase {
 
-    ConversationTask createOrUpdate(UUID agentId, UUID conversationId, String instruction, ScheduleType scheduleType, Duration duration);
+    ConversationTask createOrUpdate(UUID agentId, UUID conversationId, String instruction, ScheduleType scheduleType,
+                                    Instant startDateTime, String duration);
 
     void pause(UUID agentId, UUID conversationId, UUID taskId);
 

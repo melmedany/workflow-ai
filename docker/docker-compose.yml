@@ -2,7 +2,8 @@ services:
   workflow-ai-database:
     image: postgres:16
     container_name: workflow-ai-database
-    platform: linux/arm64
+    platform: linux/arm64 # For Apple Silicon (M-series) Macs
+#   platform: linux/amd64 # For Intel Macs, Linux x86, or Windows
     ports:
       - "5432:5432"
     environment:

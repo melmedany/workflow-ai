@@ -1,11 +1,13 @@
 package io.workflowai.application.execution.stage;
 
 import io.workflowai.application.execution.ChatProviderRegistry;
-import io.workflowai.domain.workflow.WorkflowState;
 import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.domain.workflow.StageId;
+import io.workflowai.domain.workflow.WorkflowState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static io.workflowai.application.execution.stage.StageSettings.StageSetting;
 
 /**
  * Shared by every stage that turns a classification decision into a short generated response
@@ -25,7 +27,7 @@ public class DecisionResponseGenerator {
     }
 
     String generate(WorkflowState state, StageId stageId, String prompt) {
-        StageSettings.StageSetting stageProperties = stagesProperties.get(stageId);
+        StageSetting stageProperties = stagesProperties.get(stageId);
         try {
             ChatCompletionRequest request = new ChatCompletionRequest(stageProperties.model(), stageProperties.temperature(), state.systemPrompt(), prompt, state.memoryContext());
             return chatProviderRegistry.get(stageProperties.chatProviderId()).stream(request, _ -> {

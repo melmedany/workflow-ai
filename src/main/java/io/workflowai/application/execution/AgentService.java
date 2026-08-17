@@ -44,6 +44,9 @@ public class AgentService implements AgentUseCase {
         this.agentRunTracker = agentRunTracker;
         this.workflowEventStreamer = workflowEventStreamer;
         this.conversationService = conversationService;
+
+        this.definitionStoragePort.findAll()
+                .forEach(agentDefinition -> this.reload(agentDefinition.agentId()));
     }
 
     @Override
@@ -116,7 +119,7 @@ public class AgentService implements AgentUseCase {
         AgentProperties agentProperties = toAgentProperties(definition);
         Workflow workflow = workflowFactory.build(agentProperties.workflowId(), agentProperties);
 
-        log.debug("Initialising agent [{}] with chat provider [{}] and workflowPolicy [{}]",
+        log.debug("Initializing agent [{}] with chat provider [{}] and workflowPolicy [{}]",
                 agentProperties.displayName(), agentProperties.chatProviderId(), agentProperties.workflowPolicy());
 
         Agent agent = new DefaultAgent(agentProperties, workflow);

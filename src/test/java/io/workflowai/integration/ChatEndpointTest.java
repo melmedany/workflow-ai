@@ -7,7 +7,6 @@ import io.workflowai.application.execution.ChatProviderRegistry;
 import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.application.port.out.ConversationMessageStorage;
-import io.workflowai.domain.agent.ChatProviderId;
 import io.workflowai.domain.conversation.ConversationMessage;
 import io.workflowai.domain.conversation.ConversationMessageRole;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @Sql
@@ -37,6 +38,9 @@ class ChatEndpointTest extends IntegrationBase {
 
     // agent is defined via ChatEndpointTest.sql
     private final UUID AGENT_ID = UUID.fromString("1a907243-9428-41e3-a3d1-2c25ffd2a14f");
+    private static final String GREET_JSON = """
+            {"decisionMode":"GREET","detectedTopics":[],"extractedIntent":"Hello","clarificationQuestion":null,"reason":"Greeting"}
+            """;
 
     @Autowired
     private JsonMapper jsonMapper;
@@ -48,35 +52,12 @@ class ChatEndpointTest extends IntegrationBase {
     private ChatProviderRegistry chatProviderRegistry;
 
     @BeforeEach
-    void mockOllamaProvider() {
-        ChatProvider ollama = new ChatProvider() {
-            @Override
-            public ChatProviderId getId() {
-                return Ollama;
-            }
+    void setUp() {
+        ChatProvider ollama = mock();
+        when(ollama.getId()).thenReturn(Ollama);
+        when(ollama.stream(any(ChatCompletionRequest.class), any(Consumer.class))).thenReturn("Test response");
+        when(ollama.call(any(ChatCompletionRequest.class))).thenReturn(GREET_JSON);
 
-            @Override
-            public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
-                String response = "Test response";
-                tokenConsumer.accept(response);
-                return response;
-            }
-
-            @Override
-            public String call(ChatCompletionRequest request) {
-                return "{\"decisionMode\":\"GREET\",\"detectedTopics\":[],\"extractedIntent\":\"Hello\",\"clarificationQuestion\":null,\"reason\":\"Greeting\"}";
-            }
-
-            @Override
-            public boolean supportsModel(String model) {
-                return true;
-            }
-
-            @Override
-            public java.util.Set<String> supportedModels() {
-                return java.util.Set.of();
-            }
-        };
         when(chatProviderRegistry.get(Ollama)).thenReturn(ollama);
         when(chatProviderRegistry.supportedChatProviders()).thenReturn(Map.of(Ollama, Set.of()));
     }

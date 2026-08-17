@@ -12,7 +12,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -65,13 +64,13 @@ public class ConversationTaskEntity {
         this.schedule = schedule;
     }
 
-    public void update(String newInstruction, Duration newDuration) {
+    public void update(String newInstruction, Instant newStartDateTime, String newDuration) {
         this.definition = new TaskDefinition(definition.name(), definition.intentKey(), newInstruction);
-        this.schedule = new TaskSchedule(schedule.type(), newDuration, schedule.status());
+        this.schedule = new TaskSchedule(schedule.type(), newStartDateTime, newDuration, schedule.status());
     }
 
     public void updateStatus(TaskStatus newStatus) {
-        this.schedule = new TaskSchedule(schedule.type(), schedule.duration(), newStatus);
+        this.schedule = new TaskSchedule(schedule.type(), schedule.startDateTime(), schedule.duration(), newStatus);
     }
 
     public void updateJobId(String jobId) {

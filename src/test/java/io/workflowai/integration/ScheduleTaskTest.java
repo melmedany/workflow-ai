@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.jdbc.Sql;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,7 +35,7 @@ class ScheduleTaskTest extends IntegrationBase {
     private static final String SCHEDULE_MESSAGE = "/schedule every day at 9am, summarize open PRs";
     private static final String CLASSIFICATION_JSON = """
             {"decisionMode":"EXECUTE","detectedTopics":[],"extractedIntent":"schedule a daily PR summary",
-            "clarificationQuestion":null,"reason":"clear recurring request","duration":"P1D",
+            "clarificationQuestion":null,"reason":"clear recurring request","startDateTime":"2026-08-10T10:00:00Z","duration":"P1D",
             "scheduleType":"RECURRING","scheduleInstruction":"Summarize open PRs"}
             """;
 
@@ -74,7 +73,7 @@ class ScheduleTaskTest extends IntegrationBase {
         assertThat(afterFirst).hasSize(1);
         ConversationTask task = afterFirst.getFirst();
         assertThat(task.schedule().type()).isEqualTo(RECURRING);
-        assertThat(task.schedule().duration()).isEqualTo(Duration.parse("P1D"));
+        assertThat(task.schedule().duration()).isEqualTo("P1D");
         assertThat(task.definition().instruction()).isEqualTo("Summarize open PRs");
 
         agentUseCase.trigger(AgentRequest.userMessage(AGENT_ID, conversationId, SCHEDULE_MESSAGE), _ -> {

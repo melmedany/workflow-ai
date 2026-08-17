@@ -16,7 +16,6 @@ spring-boot-web = { group = "org.springframework.boot", name = "spring-boot-star
 spring-boot-restclient = { group = "org.springframework.boot", name = "spring-boot-starter-restclient" }
 spring-boot-data = { group = "org.springframework.boot", name = "spring-boot-starter-data-jpa" }
 spring-boot-flyway = { group = "org.springframework.boot", name = "spring-boot-starter-flyway" }
-spring-boot-validation = { group = "org.springframework.boot", name = "spring-boot-starter-validation" }
 spring-boot-test = { group = "org.springframework.boot", name = "spring-boot-starter-test" }
 spring-boot-testcontainers = { group = "org.springframework.boot", name = "spring-boot-testcontainers" }
 spring-boot-jobrunr = { group = "org.jobrunr", name = "jobrunr-spring-boot-4-starter", version.ref = "jobrunr" }

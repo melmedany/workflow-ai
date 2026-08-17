@@ -29,13 +29,15 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 
+import static io.workflowai.application.execution.stage.StageSettings.StageSetting;
+
 @Configuration
 class StagesBeansConfig {
 
     @Bean
     StageSettings stageSettings(StagesProperties properties) {
         return new StageSettings(properties.stages().stream()
-                .map(stage -> new StageSettings.StageSetting(
+                .map(stage -> new StageSetting(
                         stage.stageId(), stage.chatProviderId(), stage.model(), stage.temperature()))
                 .toList());
     }
@@ -121,8 +123,8 @@ class StagesBeansConfig {
 
     @Bean
     CompactMemoryStage compactMemoryStage(ChatProviderRegistry registry, StageSettings settings,
-                                          AgentMemoryStorage memoryStorage) {
-        return new CompactMemoryStage(registry, settings, memoryStorage);
+                                          AgentMemoryStorage memoryStorage, List<WorkflowEventStreamer> streamers) {
+        return new CompactMemoryStage(registry, settings, memoryStorage, streamers);
     }
 
     @Bean

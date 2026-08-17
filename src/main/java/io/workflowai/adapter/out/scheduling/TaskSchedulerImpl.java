@@ -1,62 +1,1 @@
-package io.workflowai.adapter.out.scheduling;
-
-import io.workflowai.application.port.out.TaskScheduler;
-import io.workflowai.domain.task.ConversationTask;
-import org.jobrunr.scheduling.JobScheduler;
-import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.util.UUID;
-
-@Service
-public class TaskSchedulerImpl implements TaskScheduler {
-
-    private final JobScheduler jobScheduler;
-
-    public TaskSchedulerImpl(JobScheduler jobScheduler) {
-        this.jobScheduler = jobScheduler;
-    }
-
-    @Override
-    public String schedule(ConversationTask task) {
-        Instant scheduleAt = task.createdAt() != null ? task.createdAt().plus(task.schedule().duration()) :
-                Instant.now().plus(task.schedule().duration());
-
-        if (task.runOnce()) {
-            return jobScheduler.<ScheduledAgentTaskRunner>schedule(
-                    task.id(),
-                    scheduleAt,
-                    runner -> runner.run(task.agentId(), task.conversationId(), task.id()))
-                    .asUUID().toString();
-        }
-
-        return jobScheduler.<ScheduledAgentTaskRunner>scheduleRecurrently(
-                task.id().toString(),
-                task.schedule().duration(),
-                runner -> runner.run(task.agentId(), task.conversationId(), task.id()));
-    }
-
-    @Override
-    public String reschedule(ConversationTask task) {
-        return schedule(task);
-    }
-
-    @Override
-    public void pause(ConversationTask task) {
-        cancel(task);
-    }
-
-    @Override
-    public void resume(ConversationTask task) {
-        schedule(task);
-    }
-
-    @Override
-    public void cancel(ConversationTask task) {
-        if (task.runOnce()) {
-            jobScheduler.delete(UUID.fromString(task.runInfo().jobId()));
-        } else {
-            jobScheduler.deleteRecurringJob(task.runInfo().jobId());
-        }
-    }
-}
+package io.workflowai.adapter.out.scheduling;import io.workflowai.application.port.out.TaskScheduler;import io.workflowai.domain.exceptions.ScheduleTooFrequentException;import io.workflowai.domain.task.ConversationTask;import org.jobrunr.scheduling.JobScheduler;import org.springframework.stereotype.Service;import java.time.Duration;import java.time.Instant;import java.time.Period;import java.time.ZoneId;import java.time.ZonedDateTime;import java.time.format.DateTimeParseException;import java.time.temporal.TemporalAmount;import java.util.UUID;@Servicepublic class TaskSchedulerImpl implements TaskScheduler {    private final static Duration MINIMUM_DURATION = Duration.parse("PT1M");    private final JobScheduler jobScheduler;    public TaskSchedulerImpl(JobScheduler jobScheduler) {        this.jobScheduler = jobScheduler;    }    @Override    public String schedule(ConversationTask task) {        if (isTooFrequent(task.schedule().parsedDuration())) {            throw new ScheduleTooFrequentException("Schedule is too frequent: %s".formatted(task.schedule().duration()));        }        Instant scheduleAt = task.createdAt() != null ? task.createdAt().plus(task.schedule().parsedDuration()) :                Instant.now().plus(task.schedule().parsedDuration());        if (task.runOnce()) {            return jobScheduler.<ScheduledAgentTaskRunner>schedule(                            task.id(), scheduleAt,                            runner -> runner.run(task.agentId(), task.conversationId(), task.id()))                    .asUUID().toString();        }        String cronExpression;        if (task.schedule().parsedDuration() instanceof Period p) {            cronExpression = toCron(task.schedule().startDateTime(), p);        } else if (task.schedule().parsedDuration() instanceof Duration d) {            cronExpression = toCron(task.schedule().startDateTime(), d);        } else {            throw new IllegalArgumentException("Unknown temporal type");        }        return jobScheduler.<ScheduledAgentTaskRunner>scheduleRecurrently(                task.id().toString(), cronExpression,                runner -> runner.run(task.agentId(), task.conversationId(), task.id()));    }    @Override    public String reschedule(ConversationTask task) {        return schedule(task);    }    @Override    public void pause(ConversationTask task) {        cancel(task);    }    @Override    public void resume(ConversationTask task) {        // should check first the schedule to see if resume possible        schedule(task);    }    @Override    public void cancel(ConversationTask task) {        if (task.runOnce()) {            jobScheduler.delete(UUID.fromString(task.runInfo().jobId()));        } else {            jobScheduler.deleteRecurringJob(task.runInfo().jobId());        }    }    private String toCron(Instant startDateTime, Duration duration) {        ZonedDateTime start = startDateTime.atZone(ZoneId.systemDefault());        long minutes = duration.toMinutes();        int minute = start.getMinute();        int hour = start.getHour();        if (minutes <= 0) {            throw new IllegalArgumentException(                    "Duration must be positive: %s".formatted(duration)            );        }        if (minutes < 60) {            return String.format("*/%d * * * *", minutes);        }        if (minutes % 60 != 0) {            throw new IllegalArgumentException(                    "Duration must be a whole number of hours: %s".formatted(duration)            );        }        long hours = minutes / 60;        if (hours < 24) {            return String.format("%d %d-23/%d * * *", minute, hour, hours);        }        if (hours == 24) {            return String.format("%d %d * * *", minute, hour);        }        throw new IllegalArgumentException(                "Unsupported clock duration interval: %s".formatted(duration)        );    }    private String toCron(Instant startDateTime, Period period) {        ZonedDateTime start = startDateTime.atZone(ZoneId.systemDefault());        int minute = start.getMinute();        int hour = start.getHour();        int dayOfMonth = start.getDayOfMonth();        int dayOfWeek = start.getDayOfWeek().getValue();        int days = period.getDays();        int months = period.getMonths();        int years = period.getYears();        if (years != 0) {            throw new IllegalArgumentException(                    "Unsupported calendar period interval: %s".formatted(period)            );        }        if (months > 0) {            if (days != 0 || months < 1) {                throw new IllegalArgumentException(                        "Unsupported calendar period interval: %s".formatted(period)                );            }            return String.format(                    "%d %d %d */%d *",                    minute,                    hour,                    dayOfMonth,                    months            );        }        if (days <= 0) {            throw new IllegalArgumentException(                    "Unsupported calendar period interval: %s".formatted(period)            );        }        return switch (days) {            case 1 -> String.format("%d %d * * *", minute, hour);            case 7 -> String.format("%d %d * * %d", minute, hour, dayOfWeek);            default -> throw new IllegalArgumentException(                    "Unsupported calendar period interval: %s".formatted(period)            );        };    }    private boolean isTooFrequent(TemporalAmount temporal) {        try {            if (temporal instanceof Duration duration) {                return duration.compareTo(MINIMUM_DURATION) < 0;            }            return false; // any period is not too frequent        } catch (DateTimeParseException e) {            return false;        }    }}

@@ -59,7 +59,8 @@ public class ClassificationStage implements WorkflowStage {
         String prompt = classificationPrompt(state.agentProperties().id(), state.agentProperties().workflowPolicy(), state.userMessage(),
                 state.schedulingRequested());
 
-        ChatCompletionRequest classifyRequest = new ChatCompletionRequest(stageProperties.model(), stageProperties.temperature(), CLASSIFICATION_SYSTEM_PROMPT, prompt, "");
+        ChatCompletionRequest classifyRequest = new ChatCompletionRequest(stageProperties.model(),
+                stageProperties.temperature(), CLASSIFICATION_SYSTEM_PROMPT, prompt, state.memoryContext());
         try {
             String jsonResponse = chatProviderRegistry.get(stageProperties.chatProviderId()).call(classifyRequest);
             return parseRoutingDecision(state, jsonResponse);

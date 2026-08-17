@@ -53,6 +53,7 @@ langchain4j:
       - qwen3.5:4b
       - qwen3.5:9b
       - qwen3.6:27b
+      - qwen3.8:27b
       - phi4:mini
       - phi4:14b
   openai:
@@ -134,7 +135,6 @@ workflow-ai:
       default-model: gemini-3.1-flash-lite
       default-temperature: 0.7
       supported-models:
-        - gemini-3.1-flash-lite
         - claude-haiku-4-5
         - claude-sonnet-4-6
         - claude-sonnet-5

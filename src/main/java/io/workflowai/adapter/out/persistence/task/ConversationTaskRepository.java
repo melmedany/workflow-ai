@@ -17,7 +17,15 @@ public interface ConversationTaskRepository extends JpaRepository<ConversationTa
             "AND conversation_id = :conversationId " +
             "AND definition ->> 'intentKey' = :intentKey " +
             "AND schedule ->> 'status' = 'ACTIVE'", nativeQuery = true)
-    Optional<ConversationTaskEntity> findTaskToUpdate(UUID agentId, UUID conversationId, String intentKey);
+    Optional<ConversationTaskEntity> findActiveTaskByIntent(UUID agentId, UUID conversationId, String intentKey);
+
+    @Query(value = "SELECT * " +
+            "FROM conversation_tasks " +
+            "WHERE agent_id = :agentId " +
+            "AND conversation_id = :conversationId " +
+            "AND id = :taskId " +
+            "AND schedule ->> 'status' = 'ACTIVE'", nativeQuery = true)
+    Optional<ConversationTaskEntity> findActiveTask(UUID agentId, UUID conversationId, UUID taskId);
 
     List<ConversationTaskEntity> findByAgentIdAndConversationIdOrderByCreatedAtDesc(UUID agentId, UUID conversationId);
 }

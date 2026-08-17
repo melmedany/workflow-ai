@@ -32,6 +32,7 @@ public final class WorkflowPrompts {
               "clarificationQuestion": "question to ask the user, only set when decisionMode is CLARIFY, otherwise null",
               "reason": "brief reason for this decision",
               "scheduleType": "<one of: ONCE, RECURRING, null when scheduleMode is OFF or the request is not schedulable>",
+              "startDateTime": "An ISO-8601 24h time string. Examples: '2026-08-10T09:00:00Z', '2026-08-15T14:45:00Z', '2026-08-12T00:00:00Z' (Midnight), null when scheduleMode is OFF or no relative schedule start time applies",
               "duration": "An ISO-8601 duration string. Examples: 'PT45M' (45 mins), 'PT1H30M' (1.5 hours), 'P2D' (2 days), null when scheduleMode is OFF or no relative schedule duration applies",
               "scheduleInstruction": "plain-text instruction to run on each occurrence, with no timing/frequency wording, null when scheduleMode is OFF or the request is not schedulable"
             }
@@ -51,36 +52,18 @@ public final class WorkflowPrompts {
             1. Classify "scheduleType" as "ONCE" for a single future event or "RECURRING" for a repeating pattern.
                If a scheduling request is present but the recurrence pattern is unclear, default to "ONCE".
             2. Extract a relative time period into "duration" using strict ISO-8601 format (for example, "PT2M").
+                And 24h format "startDateTime" (for example, "2026-08-10T10:00:00Z"). Defaults to current time if not specified.
             3. CRITICAL: Clean "scheduleInstruction" by removing raw timing, frequency, and scheduling command-prefix wording.
                Example: "every 5 mins run backup" becomes "Run backup".
             4. "scheduleInstruction" must contain only the action to execute, not when, how often, or scheduling metadata.
             5. For a valid scheduling request, apply the same capability check as a normal request before returning EXECUTE.
             6. When scheduleMode is OFF, do not infer or populate any scheduling fields even if the user mentions a schedule.
-
-            When scheduleMode is OFF, example output:
-            {"decisionMode":"EXECUTE","detectedTopics":["weather"],"extractedIntent":"get tomorrow's forecast","clarificationQuestion":null,"reason":"clear, in-scope request","scheduleType":null,"duration":null,"scheduleInstruction":null}
-
-            When scheduleMode is ON, example output:
-            Input String: "every 2 minutes say hello to the user"
-            Output JSON: {"decisionMode":"EXECUTE","detectedTopics":["say hello"],"extractedIntent":"Say hello to the user","clarificationQuestion":null,"reason":"Valid recurring schedule within capabilities","scheduleType":"RECURRING","duration":"PT2M","scheduleInstruction":"Say hello to the user"}
-
-            When scheduleMode is ON, example output:
-            Input String: "update my calendar in 15 minutes"
-            Output JSON: {"decisionMode":"EXECUTE","detectedTopics":["Update my calendar"],"extractedIntent":"Update my calendar","clarificationQuestion":null,"reason":"Valid one-time future offset","scheduleType":"ONCE","duration":"PT15M","scheduleInstruction":"Update my calendar"}
-
-            When scheduleMode is ON, example output:
-            Input String: "every day check my email" (Given capabilities: "weather lookups only")
-            Output JSON: {"decisionMode":"REFUSE","detectedTopics":["check email"],"extractedIntent":"check user's email","clarificationQuestion":null,"reason":"Email operations fall outside allowed weather lookups capabilities","scheduleType":null,"duration":null,"scheduleInstruction":null}
             """;
 
     public static final String GUARDRAIL_FALLBACK_MESSAGE =
             "I'm not able to share that response. Let me know if I can help with something else.";
 
     private WorkflowPrompts() {
-    }
-
-    public static String classificationPrompt(UUID agentId, WorkflowPolicy policy, String userMessage) {
-        return classificationPrompt(agentId, policy, userMessage, false);
     }
 
     public static String classificationPrompt(UUID agentId, WorkflowPolicy policy, String userMessage,
@@ -106,7 +89,7 @@ public final class WorkflowPrompts {
     }
 
     public static String refusalPrompt(String systemPrompt, WorkflowPolicy policy, RoutingDecision decision) {
-        return decisionResponsePrompt(systemPrompt, policy, decision, "Politely decline the out-of-scope or unsafe request without providing the disallowed help.");
+        return decisionResponsePrompt(systemPrompt, policy, decision, "Politely decline the out-of-scope or unsafe request without providing the disallowed help, justified by the provided reason.");
     }
 
     public static String redirectPrompt(String systemPrompt, WorkflowPolicy policy, RoutingDecision decision) {
@@ -166,7 +149,9 @@ public final class WorkflowPrompts {
                 Extracted intent:
                 %s
 
-                %s Produce a short, on-persona answer.
+                %s
+                
+                Produce a short, on-persona answer.
                 """.formatted(
                 systemPrompt,
                 String.join(", ", policy.supportedCapabilities()),

@@ -149,7 +149,8 @@ class WorkflowStagesTest {
         var stage = new CompactMemoryStage(
                 providers,
                 stageSettings,
-                memory);
+                memory,
+                List.of());
 
         stage.execute(StagesUtil.state(RoutingDecision.greet(
                 "greeting",

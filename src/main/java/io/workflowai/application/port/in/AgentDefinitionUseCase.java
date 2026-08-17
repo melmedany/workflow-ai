@@ -20,5 +20,7 @@ public interface AgentDefinitionUseCase {
 
     AgentDefinition updateDefinition(AgentDefinition definition);
 
+    String workflowDiagram(UUID agentId);
+
     void deleteDefinition(UUID agentId);
 }

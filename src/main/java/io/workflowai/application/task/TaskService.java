@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -36,11 +36,13 @@ public class TaskService implements TaskUseCase {
         this.scheduler = scheduler;
     }
 
+
     @Override
-    public ConversationTask createOrUpdate(UUID agentId, UUID conversationId, String instruction, ScheduleType scheduleType, Duration duration) {
+    public ConversationTask createOrUpdate(UUID agentId, UUID conversationId, String instruction,
+                                           ScheduleType scheduleType, Instant startDateTime, String duration) {
         List<ConversationTask> tasks = storage.findByConversation(agentId, conversationId);
         if (tasks.isEmpty()) {
-            return create(agentId, conversationId, instruction, scheduleType, duration);
+            return create(agentId, conversationId, instruction, scheduleType, startDateTime, duration);
         }
 
         String intentKey = intentKey(instruction);
@@ -50,18 +52,18 @@ public class TaskService implements TaskUseCase {
                 .orElse(null);
 
         if (matchingTask == null) {
-            return create(agentId, conversationId, instruction, scheduleType, duration);
+            return create(agentId, conversationId, instruction, scheduleType, startDateTime, duration);
         } else {
-            return update(matchingTask, instruction, duration);
+            return update(matchingTask, instruction, startDateTime, duration);
         }
     }
 
     private ConversationTask create(UUID agentId, UUID conversationId, String instruction,
-                                    ScheduleType scheduleType, Duration duration) {
+                                    ScheduleType scheduleType, Instant startDateTime, String duration) {
         String intentKey = intentKey(instruction);
 
         TaskDefinition definition = new TaskDefinition(instruction, intentKey, instruction); // using instruction as an initial task name
-        TaskSchedule schedule = new TaskSchedule(scheduleType, duration, TaskStatus.ACTIVE);
+        TaskSchedule schedule = new TaskSchedule(scheduleType, startDateTime, duration, TaskStatus.ACTIVE);
         TaskRunInfo runInfo = new TaskRunInfo(null,null, null);
 
         ConversationTask task = storage.create(ConversationTask.newTask(agentId, conversationId, definition, schedule, runInfo));
@@ -71,8 +73,8 @@ public class TaskService implements TaskUseCase {
         return task.withJobId(jobId);
     }
 
-    private ConversationTask update(ConversationTask existingTask, String instruction, Duration duration) {
-        ConversationTask updatedTask = storage.update(existingTask.update(instruction, duration));
+    private ConversationTask update(ConversationTask existingTask, String instruction, Instant startDateTime, String duration) {
+        ConversationTask updatedTask = storage.update(existingTask.update(instruction, startDateTime, duration));
         String jobId = scheduler.reschedule(updatedTask);
         storage.updateJobId(updatedTask.agentId(), updatedTask.conversationId(), updatedTask.id(), jobId);
 
@@ -108,7 +110,7 @@ public class TaskService implements TaskUseCase {
             try {
                 cancel(agentId, conversationId, task.id());
                 log.debug("Cancelled task {} - jobId {}", task.id(), task.runInfo().jobId());
-            } catch (JobNotFoundException ex) {
+            } catch (JobNotFoundException | TaskNotFoundException ex) {
                 log.warn("Failed to cancel task {}", task.id(), ex);
             }
         }
@@ -121,7 +123,7 @@ public class TaskService implements TaskUseCase {
     }
 
     private ConversationTask findTask(UUID agentId, UUID conversationId, UUID taskId) {
-        return storage.findTask(agentId, conversationId, taskId)
+        return storage.findActiveTask(agentId, conversationId, taskId)
                 .orElseThrow(() -> new TaskNotFoundException(taskId));
     }
 

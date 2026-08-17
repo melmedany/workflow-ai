@@ -135,7 +135,7 @@ async function loadMessages(conversationId) {
     try {
         const messages = await apiGet(`${agentId}/conversations/${conversationId}/messages`);
         for (const m of messages) {
-            const role = m.role === 'USER' ? 'user' : 'agent';
+            const role = ['USER', 'SYSTEM'].includes(m.role) ? 'user' : 'agent';
             const wrapper = createMessage(role);
             wrapper.querySelector('.message-content').innerHTML = marked.parse(m.content || '');
             if (role === 'agent') {
@@ -197,11 +197,12 @@ function renderTask(t) {
     info.className = 'task-info';
     const nextRun = t.nextRunAt ? dateFns.formatRelative(new Date(t.nextRunAt), new Date()) : '—';
     const lastRun = t.lastRunStatus ? `${t.lastRunStatus}${t.lastRunAt ? ' at ' + dateFns.formatRelative(new Date(t.lastRunAt), new Date()) : ''}` : 'Never run';
+    const schedule = t.scheduleType === 'ONCE' ? 'Once ' + dateFns.formatRelative(t.nextRunAt, new Date()) : dateFns.formatDuration(t.duration) + dateFns.format(new Date(t.startDateTime), "'starting' EEEE do MMMM 'at' HH:mm")
     info.innerHTML = `
         <div class="task-instruction">${t.name}</div>
         <div class="task-meta">
             <span class="task-status-badge task-status-${t.status.toLowerCase()}">${t.status}</span>
-            <span>${t.scheduleType === 'ONCE' ? 'Once ' + dateFns.formatRelative(t.nextRunAt, new Date()) : dateFns.formatDuration(t.duration)}</span>
+            <span>${schedule}</span>
             <span>Next: ${nextRun}</span>
             <span>Last run: ${lastRun}</span>
         </div>`;

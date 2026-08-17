@@ -40,16 +40,16 @@ public class DatabaseConversationTaskStorageAdapter implements ConversationTaskS
     @Override
     @Transactional
     public ConversationTask update(ConversationTask task) {
-        ConversationTaskEntity existing = taskRepository.findTaskToUpdate(
+        ConversationTaskEntity existing = taskRepository.findActiveTaskByIntent(
                         task.agentId(), task.conversationId(), task.definition().intentKey())
                 .orElseThrow(() -> new TaskNotFoundException(task.id()));
-        existing.update(task.definition().instruction(), task.schedule().duration());
+        existing.update(task.definition().instruction(), task.schedule().startDateTime(), task.schedule().duration());
         return toDomain(taskRepository.save(existing));
     }
 
     @Override
-    public Optional<ConversationTask> findTask(UUID agentId, UUID conversationId, UUID taskId) {
-        return taskRepository.findById(taskId).map(this::toDomain);
+    public Optional<ConversationTask> findActiveTask(UUID agentId, UUID conversationId, UUID taskId) {
+        return taskRepository.findActiveTask(agentId, conversationId, taskId).map(this::toDomain);
     }
 
     @Override
@@ -62,7 +62,8 @@ public class DatabaseConversationTaskStorageAdapter implements ConversationTaskS
     @Override
     @Transactional
     public void updateStatus(UUID agentId, UUID conversationId, UUID taskId, TaskStatus status) {
-        ConversationTaskEntity entity = taskRepository.findById(taskId).orElseThrow(() -> new TaskNotFoundException(taskId));
+        ConversationTaskEntity entity = taskRepository.findActiveTask(agentId, conversationId, taskId)
+                .orElseThrow(() -> new TaskNotFoundException(taskId));
         entity.updateStatus(status);
         taskRepository.save(entity);
     }
@@ -70,7 +71,8 @@ public class DatabaseConversationTaskStorageAdapter implements ConversationTaskS
     @Override
     @Transactional
     public void updateJobId(UUID agentId, UUID conversationId, UUID taskId, String jobId) {
-        ConversationTaskEntity entity = taskRepository.findById(taskId).orElseThrow(() -> new TaskNotFoundException(taskId));
+        ConversationTaskEntity entity = taskRepository.findActiveTask(agentId, conversationId, taskId)
+                .orElseThrow(() -> new TaskNotFoundException(taskId));
         entity.updateJobId(jobId);
         taskRepository.save(entity);
     }
@@ -78,7 +80,8 @@ public class DatabaseConversationTaskStorageAdapter implements ConversationTaskS
     @Override
     @Transactional
     public void updateAfterRun(UUID agentId, UUID conversationId, UUID taskId, UUID lastRunId) {
-        ConversationTaskEntity entity = taskRepository.findById(taskId).orElseThrow(() -> new TaskNotFoundException(taskId));
+        ConversationTaskEntity entity = taskRepository.findActiveTask(agentId, conversationId, taskId)
+                .orElseThrow(() -> new TaskNotFoundException(taskId));
         entity.recordRun(lastRunId);
         taskRepository.save(entity);
     }
