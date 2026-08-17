@@ -61,7 +61,7 @@ The stages that exist today:
 | `GENERATE_REDIRECT`      | yes                | yes         | Points a mixed-scope request at its in-scope part.                                      |
 | `GENERATE_REFUSAL`       | yes                | yes         | Declines an out-of-scope or unsafe request.                                             |
 | `SELF_VERIFICATION`      | yes                | yes         | Checks the generated response against the response contract and retries once.           |
-| `PERSIST_RESPONSE`       | no — shared helper | no          | Saves the final response and emits it, called by every stage that produces one.         |
+| `PERSIST_RESPONSE`       | no (shared helper) | no          | Saves the final response and emits it, called by every stage that produces one.         |
 | `COMPACT_MEMORY`         | yes                | no          | Rewrites the conversation's memory blob after the visible turn.                         |
 | `COMPLETE`               | yes                | yes         | Closes the turn and hands the result to notification channels.                          |
 | `GUARDRAIL_INPUT`        | no                 | no          | Declared with a label but never emitted; guardrailing happens inside the provider call. |
@@ -94,49 +94,113 @@ status, and failure message.
 
 ## Architecture
 
-The code follows hexagonal architecture best practices. The domain holds the model and the workflow definition and
-rules, the application layer owns the ports, execution, and the orchestration, and adapters sit on the outside
-implementing those ports.
+The code is organized into `domain`, `application` (with `port.in` / `port.out`), `adapter` (with `adapter.in` /
+`adapter.out`), and `bootstrap` packages. The boundaries between them are not a documented convention, they are enforced
+by `ArchitectureTest` (ArchUnit) as part of the test suite.
+
+### Components and boundaries
 
 ```mermaid
 flowchart TB
-    WEB["Browser pages and API clients"]
-
-    subgraph in_adapters["adapter.in — inbound adapters"]
-        REST["REST controllers, DTOs, SSE emitter"]
+    subgraph ADAPTER_IN["adapter.in.rest"]
+        CTRLS["AgentController, AgentDefinitionController,<br/>TaskController, GlobalExceptionHandler"]
     end
 
-    subgraph app["application — use cases and orchestration"]
-        PORT_IN["port.in — inbound ports (use cases)"]
-        CORE["Services, workflow stages,<br/>workflow assembly, provider registry"]
-        PORT_OUT["port.out — outbound ports"]
+    subgraph APPLICATION["application"]
+        subgraph PORT_IN["port.in"]
+            UC["AgentUseCase, AgentDefinitionUseCase,<br/>ConversationUseCase, TaskUseCase"]
+        end
+        EXEC["execution: AgentService, ChatProviderRegistry,<br/>stage.* (one class per StageId), workflow.WorkflowFactory"]
+        SERVICES["agent.AgentDefinitionService, conversation.ConversationService,<br/>task.TaskService"]
+        subgraph PORT_OUT["port.out"]
+            PORTS["ChatProvider, AgentDefinitionStorage, ConversationStorage,<br/>ConversationMessageStorage, AgentMemoryStorage, AgentRunTracker,<br/>ConversationTaskStorage, TaskScheduler, WorkflowEventStreamer, NotificationChannel"]
+        end
     end
 
-    subgraph dom["domain — model and workflow rules"]
-        DOMAIN["Agent, conversation, task and workflow model<br/>routing decisions, policies, stage contract, graph wiring"]
+    subgraph DOMAIN["domain"]
+        DAGENT["agent: AgentDefinition, ChatProviderId, TriggerSource"]
+        DCONV["conversation: Conversation, ConversationMessage"]
+        DTASK["task: ConversationTask, SchedulingIntentDetector"]
+        DWF["workflow: StageId, WorkflowStage,<br/>WorkflowExecutorFactory (uses LangGraph4j)"]
     end
 
-    subgraph out_adapters["adapter.out — outbound adapters"]
-        OUT["Chat providers and guardrails, persistence,<br/>scheduling, event streaming"]
+    subgraph ADAPTER_OUT["adapter.out"]
+        CHAT["chat.provider / chat.guardrail <br/>Abstract(OpenAi)ChatProvider, Ollama/OpenAi/Anthropic/BonzaiProvider<br/>(uses LangChain4j)"]
+        PERSIST["persistence: Database*StorageAdapter,<br/>JPA entities and repositories"]
+        SCHED["scheduling: TaskSchedulerImpl,<br/>ScheduledAgentTaskRunner (uses JobRunr)"]
+        STREAM["stream: SSEWorkflowEventStreamer,<br/>DefaultStageLabelProvider"]
     end
 
-    BOOT["bootstrap — Spring configuration and bean wiring"]
-    WEB --> REST
-    REST --> PORT_IN
-    CORE -. implements .-> PORT_IN
-    CORE --> PORT_OUT
-    CORE --> DOMAIN
-    REST --> DOMAIN
-    OUT -. implements .-> PORT_OUT
-    OUT --> DOMAIN
-    BOOT --> CORE
-    BOOT --> OUT
+    BOOTSTRAP["bootstrap: WorkflowAIApplication,<br/>ApplicationBeansConfig, StagesBeansConfig"]
+    ADAPTER_IN --> PORT_IN
+    ADAPTER_IN --> DWF
+    EXEC -. implements .-> PORT_IN
+    SERVICES -. implements .-> PORT_IN
+    EXEC --> PORT_OUT
+    EXEC --> DOMAIN
+    SERVICES --> PORT_OUT
+    CHAT -. implements .-> PORT_OUT
+    PERSIST -. implements .-> PORT_OUT
+    SCHED -. implements .-> PORT_OUT
+    STREAM -. implements .-> PORT_OUT
+    CHAT --> DOMAIN
+    PERSIST --> DOMAIN
+    SCHED --> DOMAIN
+    STREAM --> DOMAIN
+    BOOTSTRAP --> APPLICATION
+    BOOTSTRAP --> ADAPTER_IN
+    BOOTSTRAP --> ADAPTER_OUT
 ```
 
-Dependencies only ever point inward, and the inbound and outbound adapter packages never reference each other.
-`ArchitectureTest` enforces this as a test rather than a convention. Domain may not depend on the application layer, on
-adapters, on Spring, or on LangChain4j. The application layer may not depend on adapters or on either AI framework.
-LangChain4j is confined to `adapter.out.chat`. LangGraph4j is confined to `domain.workflow`.
+The domain holds the model and the workflow definition and rules, the application layer owns the ports, execution, and
+the orchestration, and adapters sit on the outside implementing those ports. `bootstrap` is the only package that is
+allowed to know about all of them, since it exists to wire beans together.
+
+### Dependency rules
+
+Every rule below is one `@ArchTest` in `ArchitectureTest`, and a violation fails the build. The diagram shows exactly
+what the test forbids (dashed arrows) and the two narrow exceptions it carves out (solid arrows), nothing more, nothing
+less.
+
+```mermaid
+flowchart TB
+    subgraph DOMAIN["domain"]
+        WORKFLOW["domain.workflow"]
+    end
+    APPLICATION["application (incl. application.port)"]
+    ADAPTER_IN["adapter.in"]
+    subgraph ADAPTER_OUT["adapter.out"]
+        CHAT["adapter.out.chat"]
+    end
+    BOOTSTRAP["bootstrap"]
+    SPRING(["org.springframework"])
+    LANGCHAIN4J(["dev.langchain4j"])
+    LANGGRAPH4J(["org.bsc.langgraph4j"])
+    DOMAIN -. forbidden .-> APPLICATION
+    DOMAIN -. forbidden .-> ADAPTER_IN
+    DOMAIN -. forbidden .-> ADAPTER_OUT
+    DOMAIN -. forbidden .-> SPRING
+    DOMAIN -. forbidden .-> LANGCHAIN4J
+    DOMAIN -. " forbidden, except domain.workflow " .-> LANGGRAPH4J
+    WORKFLOW --> LANGGRAPH4J
+    APPLICATION -. forbidden .-> ADAPTER_IN
+    APPLICATION -. forbidden .-> ADAPTER_OUT
+    APPLICATION -. forbidden .-> LANGCHAIN4J
+    APPLICATION -. forbidden .-> LANGGRAPH4J
+    ADAPTER_IN -. forbidden .-> LANGCHAIN4J
+    ADAPTER_OUT -. " forbidden, except adapter.out.chat " .-> LANGCHAIN4J
+    CHAT --> LANGCHAIN4J
+    BOOTSTRAP -. forbidden .-> LANGCHAIN4J
+    ADAPTER_IN -. " forbidden, both directions " .-> ADAPTER_OUT
+```
+
+Domain must not depend on application, on either adapter package, on Spring, or on LangChain4j, and outside
+`domain.workflow`, not on LangGraph4j either. `domain.workflow` is the one place allowed to import LangGraph4j. The
+application layer (including `application.port`) must not depend on either adapter package or on either AI framework.
+LangChain4j may only be imported from `adapter.out.chat`, every other package, including
+`bootstrap`, is checked and forbidden. And `adapter.in` and `adapter.out` must never depend on each other. Nothing here
+is enforced beyond these nine assertions; anything else the packages happen to do today is convention, not a tested
+rule.
 
 The concrete package and file layout are in [SETUP.md](SETUP.md).
 
@@ -274,13 +338,13 @@ sequenceDiagram
     Graph ->> DB: PERSIST_USER_MESSAGE, then LOAD_MEMORY
     Graph ->> LLM: CLASSIFICATION with schedule-extraction rules appended
     LLM -->> Graph: decisionMode, schedule type, duration, scheduleInstruction
-    alt REFUSE — instruction outside supported capabilities
+    alt REFUSE: instruction outside supported capabilities
         Graph ->> LLM: GENERATE_REFUSAL
         Graph -->> Client: Refusal, no task created
-    else REFUSE — instruction is itself a scheduling request
+    else REFUSE: instruction is itself a scheduling request
         Graph ->> LLM: GENERATE_REFUSAL
         Graph -->> Client: Refusal, no task created
-    else CLARIFY — timing or instruction unclear
+    else CLARIFY: timing or instruction unclear
         Graph -->> Client: Clarifying question, no task created
     else EXECUTE with a usable schedule
         Graph ->> Graph: CREATE_TASK
@@ -294,7 +358,7 @@ sequenceDiagram
     Graph ->> DB: COMPACT_MEMORY, then COMPLETE
 ```
 
-The capability check happens here, once, and not again when the task fires — the classification rules say so explicitly,
+The capability check happens here, once, and not again when the task fires, the classification rules say so explicitly,
 because the stored instruction will be re-run without further review. The recursion check is applied twice: the
 classifier is told to refuse an instruction that schedules something, and `CREATE_TASK` independently re-checks the
 extracted instruction and refuses a blank one or one that still reads as a scheduling request.
@@ -335,7 +399,7 @@ sequenceDiagram
 
 Two consequences of bypassing classification are worth being explicit about. The run's capability scope is not
 re-checked at fire time; the only gate is that the task is still `ACTIVE`, and scope was settled when the task was
-created. And `CREATE_TASK` is unreachable on this path, so a scheduled run cannot schedule anything — belt and braces,
+created. And `CREATE_TASK` is unreachable on this path, so a scheduled run cannot schedule anything, belt and braces,
 since `CREATE_TASK` also refuses system-triggered runs if it is ever reached another way. Guardrails still apply because
 they live in the provider call: blocked input makes `EXECUTE_WORKFLOW` return the agent's fallback message.
 
@@ -347,23 +411,23 @@ somewhere else, but has no implementation yet.
 `admin.html` edits `AgentDefinition` records through the admin API. One agent is selected from the list on the left, and
 its properties are split across three tabs, all saved together by the single form:
 
-- **Overview** — reads and writes `details`: the enabled flag, display name, and description. The agent id is shown
+- **Overview:** reads and writes `details`: the enabled flag, display name, and description. The agent id is shown
   read-only.
-- **Instructions & Policy** — reads and writes `chatProperties.agentPrompt` and the whole of `workflowPolicy`:
+- **Instructions & Policy:** reads and writes `chatProperties.agentPrompt` and the whole of `workflowPolicy`:
   supported capabilities, the failed-to-process fallback, and the response contract (format, minimum length, and
   required JSON fields when the format is JSON).
-- **Workflow** — reads and writes `workflowId` and the rest of `chatProperties`: chat provider, model, temperature, and
+- **Workflow:** reads and writes `workflowId` and the rest of `chatProperties`: chat provider, model, temperature, and
   the memory flag. The provider and model dropdowns are populated from
   `GET /api/admin/agents/supported-chat-providers`, and the model list is filtered by the selected provider. Below the
   fields, the agent's compiled graph is fetched as Mermaid text and rendered.
 
 Two things the admin UI does not do. Per-stage model tiering is not editable there: the stage models live in
 `workflow-ai.stages` in `application.yml` and require a restart. And scheduled tasks are managed from the chat UI, not
-here — `chat.html` has a **Tasks** tab listing the current conversation's tasks with their schedule, status, next run,
+here. `chat.html` has a **Tasks** tab listing the current conversation's tasks with their schedule, status, next run,
 and last run, and offering pause, resume, and cancel.
 
-Agents are not cached. Each request rebuilds the agent from its stored definition, so a saved edit takes effect on the
-next request without a reload step.
+Agents are cached in memory once built. Saving or updating a definition through the admin API explicitly reloads that
+one agent from its stored definition, so the edit takes effect on the very next request without an application restart.
 
 ### Adapters
 
@@ -382,8 +446,9 @@ and `BonzaiProvider` both build on it, and Bonzai adds nothing beyond its own co
 To add one: add a value to `ChatProviderId`, add a `@Component` extending `AbstractOpenAiProvider` for an
 OpenAI-compatible endpoint or `AbstractChatProvider` otherwise, give it a nested `@ConfigurationProperties` record with
 base URL, key, default model, default temperature, and supported models, and add the matching block to
-`application.yml` — note that the existing providers are split between `langchain4j.*` and, for Bonzai,
-`workflow-ai.providers.bonzai`, so follow whichever prefix your record declares. `ChatProviderRegistry` collects every
+`application.yml`. Note that the existing providers are split between `langchain4j.*` and, for Bonzai,
+`workflow-ai.chat-providers.bonzai`, so follow whichever prefix your record declares. `ChatProviderRegistry` collects
+every
 `ChatProvider` bean by id, so nothing needs registering by hand; the new provider immediately appears in the admin
 dropdowns and can be selected per agent and per stage.
 
@@ -465,16 +530,16 @@ DELETE /api/admin/agents/{agentId}
 
 Event names are the `EventType` constants, upper snake case:
 
-| Event                    | Data                                                                               | Sent when                                                         |
-|--------------------------|------------------------------------------------------------------------------------|-------------------------------------------------------------------|
-| `CONVERSATION_CREATED`   | conversation JSON: `id`, `agentId`, `title`, `createdAt`, `updatedAt`              | Only when the path value was `NEW_CONVERSATION`.                  |
-| `STAGE`                  | `{"stageId","status","label","reason"}`, status `STARTED`, `COMPLETED` or `FAILED` | A stage starts, finishes or fails — user-facing stages only.      |
-| `DECISION`               | `{"mode","reason"}`                                                                | Classification produced a routing decision.                       |
-| `TOKEN`                  | `text/plain` fragment                                                              | Each chunk of the final response.                                 |
-| `RESPONSE_COMPLETED`     | `{}`                                                                               | The response text is complete.                                    |
-| `CONVERSATION_COMPLETED` | `{}`                                                                               | The visible turn is finished.                                     |
-| `MEMORY_UPDATED`         | `{}`                                                                               | Defined end to end but never emitted — see the limitations below. |
-| `ERROR`                  | `{"message"}`                                                                      | The turn failed.                                                  |
+| Event                    | Data                                                                               | Sent when                                                    |
+|--------------------------|------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| `CONVERSATION_CREATED`   | conversation JSON: `id`, `agentId`, `title`, `createdAt`, `updatedAt`              | Only when the path value was `NEW_CONVERSATION`.             |
+| `STAGE`                  | `{"stageId","status","label","reason"}`, status `STARTED`, `COMPLETED` or `FAILED` | A stage starts, finishes or fails (user-facing stages only). |
+| `DECISION`               | `{"mode","reason"}`                                                                | Classification produced a routing decision.                  |
+| `TOKEN`                  | `text/plain` fragment                                                              | Each chunk of the final response.                            |
+| `RESPONSE_COMPLETED`     | `{}`                                                                               | The response text is complete.                               |
+| `CONVERSATION_COMPLETED` | `{}`                                                                               | The visible turn is finished.                                |
+| `MEMORY_UPDATED`         | `{}`                                                                               | Memory compaction completed.                                 |
+| `ERROR`                  | `{"message"}`                                                                      | The turn failed.                                             |
 
 Infrastructure stages (`PERSIST_USER_MESSAGE`, `LOAD_MEMORY`, `PERSIST_RESPONSE`, `COMPACT_MEMORY`) are logged
 server-side but never streamed. `TOKEN` events are whitespace-split chunks of a response that is already complete and
@@ -487,11 +552,9 @@ already persisted, not model-paced output.
 ### Not yet implemented
 
 - **Responses are not streamed as they are generated.** `EXECUTE_WORKFLOW` and the greeting, redirect, and refusal
-  stages pass a discarding token consumer to the provider and buffer the whole response — `EXECUTE_WORKFLOW` has to,
+  stages pass a discarding token consumer to the provider and buffer the whole response. `EXECUTE_WORKFLOW` has to,
   because `SELF_VERIFICATION` may reject the draft. Clarification does not stream at all. `PERSIST_RESPONSE` then
   re-emits the finished text as `TOKEN` events. The SSE contract is streaming; the experience is a burst.
-- **`MEMORY_UPDATED` is never emitted.** The event exists as `WorkflowEvent.MemoryUpdated`, as an `EventType`, as a
-  controller branch and as a handler in `chat.js`, but `WorkflowEventStreamer` has no method that produces it.
 - **Guardrail stages are never emitted.** `GUARDRAIL_INPUT` and `GUARDRAIL_OUTPUT` have ids and UI labels, but
   guardrailing happens inside the provider call, so clients never see a guardrail step.
 - **Notifications go nowhere.** `NotificationChannel` has no implementation, so `COMPLETE`'s fan-out is a no-op and a
@@ -503,24 +566,23 @@ already persisted, not model-paced output.
   fast follow-up message may load the previous memory blob.
 - **Self-verification gives up after one retry.** A response that is still invalid is persisted and returned as best
   effort.
-- **Agents are rebuilt per request.** Every call re-reads the definition, re-validates the provider and models, and
-  recompiles the graph. This is what makes admin edits take effect immediately, and it repeats work on every turn.
-- **Task control ignores its own path parameters.** `pause`, `resume` and `cancel` take `agentId` and
-  `conversationId` in the path but act on `taskId` alone, and tasks can only be listed per conversation.
+- **The agent cache is only invalidated by the admin API.** `AgentService` keeps built agents in an in-memory map and
+  only rebuilds one when `saveDefinition`/`updateDefinition` calls `reload`. A definition changed by any other route (a
+  direct database edit, for instance) would not be picked up until the process restarts.
 
 ### Intentionally out of scope
 
 These are decisions, not a backlog.
 
 - **More workflows and stages.** `WorkflowId` has one value and `WorkflowExecutorFactory` builds one graph. New variants
-  and stages get added when a real requirement needs them, not speculatively — and the graph is intentionally not
+  and stages get added when a real requirement needs them, not speculatively, and the graph is intentionally not
   user-editable, since a fixed, inspectable shape is the point of the project.
 - **Multi-tenancy, agent ACLs, and user management.** There is no user in the model at all: conversations belong to
   agents. Adding identity, ownership, and per-agent access control would change the data model throughout, and this tool
   has no use for it.
 - **Hosting local models.** Ollama is consumed as an already-running endpoint through a provider adapter, which checks
-  that a model is present and tells you to `ollama pull` it yourself. Managing local inference servers — Ollama, vLLM,
-  or anything else — as pluggable provider connections owned by this project is not something it will do; new engines
+  that a model is present and tells you to `ollama pull` it yourself. Managing local inference servers. Ollama, vLLM,
+  or anything else, as pluggable provider connections owned by this project is not something it will do; new engines
   arrive as adapters against endpoints someone else runs.
 - **Production deployment.** This project is not intended to be deployed. If that ever changed, each of the following
   would need evaluating first, and none of them is a commitment: authentication and authorization on both API surfaces;
