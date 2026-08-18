@@ -17,12 +17,12 @@ and when to stop. That is more flexible and much harder to reason about. Here th
 are known, the cost profile is knowable in advance, and adding a capability means changing code or configuration rather
 than hoping a prompt generalises.
 
-This is for experimentation purposes only. It is not intended to be deployed while building it. There is no
-authentication, provider keys, or a per-user tenant.
+**Status:** PoC as a showcase for the idea, it is not production-ready.
+See [Known Limitations & Chosen Scope](#known-limitations--chosen-scope)
 
 ### How this was built
 
-The project was built with help of Claude Code through prompt-driven iteration, with a minimal upfront spec. A review
+The project was built with the help of Claude Code through prompt-driven iteration, with a minimal upfront spec. A review
 pass over the whole codebase produced the first spec-like artifact, and after that point development moved to scoped,
 ordered implementation prompts. Earlier code therefore reflects unplanned iteration and later code reflects spec-first
 prompts. This is a process note, not a claim about quality.
@@ -581,9 +581,9 @@ These are decisions, not a backlog.
   agents. Adding identity, ownership, and per-agent access control would change the data model throughout, and this tool
   has no use for it.
 - **Hosting local models.** Ollama is consumed as an already-running endpoint through a provider adapter, which checks
-  that a model is present and tells you to `ollama pull` it yourself. Managing local inference servers. Ollama, vLLM,
-  or anything else, as pluggable provider connections owned by this project is not something it will do; new engines
-  arrive as adapters against endpoints someone else runs.
+  that a model is present and tells you to `ollama pull` it yourself. Managing local inference servers. Ollama, vLLM, or
+  anything else, as pluggable provider connections owned by this project is not something it will do; new engines arrive
+  as adapters against endpoints someone else runs.
 - **Production deployment.** This project is not intended to be deployed. If that ever changed, each of the following
   would need evaluating first, and none of them is a commitment: authentication and authorization on both API surfaces;
   secrets management, since provider keys and the datasource password are plain values in

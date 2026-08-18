@@ -17,7 +17,6 @@ CREATE TABLE messages
     agent_id        UUID             NOT NULL,
     role            VARCHAR          NOT NULL,
     content         TEXT             NOT NULL,
-    add_to_memory   BOOLEAN          NOT NULL DEFAULT true,
     created_at      TIMESTAMP        NOT NULL DEFAULT now(),
     FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
     FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE

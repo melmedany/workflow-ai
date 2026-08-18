@@ -54,7 +54,7 @@ langchain4j:
       - qwen3.5:9b
       - qwen3.6:27b
       - qwen3.8:27b
-      - phi4:mini
+      - phi4-mini:3.8b
       - phi4:14b
   openai:
     base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}

@@ -34,7 +34,7 @@ public class CompleteStage implements WorkflowStage {
     public Map<String, Object> execute(WorkflowState state) {
         workflowEventStreamers.forEach(s -> s.conversationCompleted(state.runId()));
         ConversationMessage message = new ConversationMessage(ConversationMessageRole.AGENT,
-                state.generatedResponse().orElse(""), true);
+                state.generatedResponse().orElse(""));
         notificationChannels.forEach(channel -> channel.notify(state.agentProperties().id(), state.conversationId(), message));
         log.debug("[{}] Workflow complete for conversation [{}]", state.agentProperties().id(), state.conversationId());
         return Map.of();

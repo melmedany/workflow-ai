@@ -89,8 +89,8 @@ src/test
 ```
 
 The boundaries this layout implies are enforced by `ArchitectureTest`: the domain depends on nothing outward and on
-neither Spring nor LangChain4j, and outside `domain.workflow` not on LangGraph4j either. The application layer
-depends on ports rather than adapters and on neither AI framework; LangChain4j is allowed only under
+neither Spring nor LangChain4j, and outside `domain.workflow` not on LangGraph4j either. The application layer depends
+on ports rather than adapters and on neither AI framework; LangChain4j is allowed only under
 `adapter.out.chat`; and `adapter.in` and `adapter.out` never reference each other. LangGraph4j is only ever imported
 from `domain.workflow` today, though the test does not forbid other packages from using it directly.
 
@@ -104,7 +104,7 @@ Flyway owns every table. `spring.flyway.schemas` is `public, tasks`, so the `tas
 |----------------------|-----------------------------------------------------------------------------------------------------------------|
 | `agents`             | Agent definitions, with `details`, `chat_properties` and `workflow_policy` stored as JSONB. V1 seeds one agent. |
 | `conversations`      | One row per conversation, owned by an agent. Cascades on agent delete.                                          |
-| `messages`           | User and agent messages, with an `add_to_memory` flag. Cascades on conversation delete.                         |
+| `messages`           | User, system, and agent messages.                                                                               |
 | `agent_memory`       | One compact memory blob per `(conversation_id, agent_id)`.                                                      |
 | `agent_runs`         | One row per workflow execution.                                                                                 |
 | `conversation_tasks` | Scheduled tasks.                                                                                                |
@@ -189,8 +189,8 @@ gradlew.bat test
   request leaves the JVM. `ScheduleTaskTest` does the same with a stub that returns schedule-extraction JSON. If either
   test ever starts requiring a real Ollama, treat that as a regression rather than a setup problem.
 - The remaining integration tests `AgentDefinitionEndpointTest`, `ConversationPersistenceTest`,
-  `MemoryPersistenceTest`, `DatabaseAgentRunTrackerAdapterTest` (in `RunHistoryPersistenceTest.java`) exercise the
-  admin API and the storage adapters directly and never reach a model.
+  `MemoryPersistenceTest`, `DatabaseAgentRunTrackerAdapterTest` (in `RunHistoryPersistenceTest.java`) exercise the admin
+  API and the storage adapters directly and never reach a model.
 - Unit tests under `application/execution/stage` (`WorkflowStagesTest`, `ClassificationStageSchedulingTest`,
   `CreateTaskStageTest`) cover classification's scheduling behaviour, `CREATE_TASK`'s clarify and refuse branches, and
   the remaining stages without Spring or a database. `AgentDefinitionServiceTest` under `application/agent` covers

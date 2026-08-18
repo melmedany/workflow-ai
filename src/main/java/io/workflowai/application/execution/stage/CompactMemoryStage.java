@@ -53,7 +53,6 @@ public class CompactMemoryStage implements WorkflowStage {
         String userMessage = state.userMessage();
         String response = state.generatedResponse().orElse("");
 
-        // Missing loading previous user messages
         compactMemory(agentProperties.id(), agentProperties.systemPrompt(), state.conversationId(),
                 previousMemory, userMessage, response);
 

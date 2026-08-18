@@ -2,8 +2,8 @@ package io.workflowai.adapter.out.persistence;
 
 import io.workflowai.adapter.out.persistence.conversation.message.MessageEntity;
 import io.workflowai.adapter.out.persistence.conversation.message.MessageRepository;
-import io.workflowai.domain.conversation.ConversationMessage;
 import io.workflowai.application.port.out.ConversationMessageStorage;
+import io.workflowai.domain.conversation.ConversationMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +28,7 @@ public class DatabaseConversationMessageStorageAdapter implements ConversationMe
   @Override
   public List<ConversationMessage> findByAgentIdAndConversationId(UUID agentId, UUID conversationId) {
     return repository.findByAgentIdAndConversationIdOrderByCreatedAtAsc(agentId, conversationId).stream()
-        .map(e -> new ConversationMessage(e.role(), e.content(), e.addToMemory()))
+        .map(e -> new ConversationMessage(e.role(), e.content()))
         .toList();
   }
 }

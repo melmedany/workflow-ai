@@ -29,22 +29,14 @@ public class GuardrailChecker {
     }
 
     private Optional<String> check(String text, List<CompiledTerm> blockedTerms) {
-        String cleaned = clean(text);
-
-        if (cleaned.isBlank()) {
-            return Optional.empty();
-        }
-
         return blockedTerms.stream()
-                .filter(term -> term.pattern().matcher(text).find())
+                .filter(term -> term.pattern().matcher(clean(text)).find())
                 .map(CompiledTerm::term)
                 .findFirst();
     }
 
     private String clean(String text) {
-        if (text == null) {
-            return "";
-        }
+        if (text == null) return "";
 
         // Simple trivial checks
         return text

@@ -43,7 +43,7 @@ public class PersistUserMessageStage implements WorkflowStage {
         conversationMessageStorage.save(
                 state.conversationId(),
                 state.agentProperties().id(),
-                new ConversationMessage(messageRole, state.userMessage(), true));
+                new ConversationMessage(messageRole, state.userMessage()));
         workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.PERSIST_USER_MESSAGE));
         log.debug("[{}] User message persisted for conversation [{}]", state.agentProperties().id(), state.conversationId());
         return Map.of();

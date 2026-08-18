@@ -58,9 +58,9 @@ class ConversationPersistenceTest extends IntegrationBase {
         Conversation conversation = conversationStorage.create(AGENT_ID_1, "Message test");
 
         conversationMessageStorage.save(conversation.id(), AGENT_ID_1,
-                new ConversationMessage(ConversationMessageRole.USER, "Hello", true));
+                new ConversationMessage(ConversationMessageRole.USER, "Hello"));
         conversationMessageStorage.save(conversation.id(), AGENT_ID_1,
-                new ConversationMessage(ConversationMessageRole.AGENT, "Hi there", true));
+                new ConversationMessage(ConversationMessageRole.AGENT, "Hi there"));
 
         List<ConversationMessage> messages = conversationMessageStorage.findByAgentIdAndConversationId(conversation.agentId(), conversation.id());
 
@@ -76,9 +76,9 @@ class ConversationPersistenceTest extends IntegrationBase {
         Conversation conversation2 = conversationStorage.create(AGENT_ID_2, "Conversation 2");
 
         conversationMessageStorage.save(conversation1.id(), AGENT_ID_1,
-                new ConversationMessage(ConversationMessageRole.USER, "Conversation1 message", true));
+                new ConversationMessage(ConversationMessageRole.USER, "Conversation1 message"));
         conversationMessageStorage.save(conversation2.id(), AGENT_ID_2,
-                new ConversationMessage(ConversationMessageRole.USER, "Conversation2 message", true));
+                new ConversationMessage(ConversationMessageRole.USER, "Conversation2 message"));
 
         assertThat(conversationMessageStorage.findByAgentIdAndConversationId(conversation1.agentId(), conversation1.id()))
                 .hasSize(1);

@@ -15,7 +15,7 @@ public final class WorkflowPrompts {
     public static final String CLASSIFICATION_SYSTEM_PROMPT = """
             You are a workflow classification assistant. Your task is to evaluate user requests and produce a routing decision.
             You MUST respond with a single valid JSON object matching this exact schema, with no additional text,
-            no markdown code fence (no ``` characters), and no explanation before or after the JSON.
+            NO MARKDOWN CODE fence (no ``` characters), and NO EXPLANATION before or after the JSON.
             Evaluate whether the User input qualifies with the provided "Supported capabilities". If it requests an action not
             explicitly allowed, set "decisionMode" to "REFUSE" and explain why in "reason".
 
@@ -33,7 +33,7 @@ public final class WorkflowPrompts {
               "reason": "brief reason for this decision",
               "scheduleType": "<one of: ONCE, RECURRING, null when scheduleMode is OFF or the request is not schedulable>",
               "startDateTime": "An ISO-8601 24h time string. Examples: '2026-08-10T09:00:00Z', '2026-08-15T14:45:00Z', '2026-08-12T00:00:00Z' (Midnight), null when scheduleMode is OFF or no relative schedule start time applies",
-              "duration": "An ISO-8601 duration string. Examples: 'PT45M' (45 mins), 'PT1H30M' (1.5 hours), 'P2D' (2 days), null when scheduleMode is OFF or no relative schedule duration applies",
+              "duration": "An ISO-8601 duration string. Examples: 'PT45M' (45 mins), 'PT1H30M' (1.5 hours), 'P1D' (1 day), null when scheduleMode is OFF or no relative schedule duration applies",
               "scheduleInstruction": "plain-text instruction to run on each occurrence, with no timing/frequency wording, null when scheduleMode is OFF or the request is not schedulable"
             }
 
@@ -51,10 +51,12 @@ public final class WorkflowPrompts {
             Scheduling rules (apply ONLY when scheduleMode is ON):
             1. Classify "scheduleType" as "ONCE" for a single future event or "RECURRING" for a repeating pattern.
                If a scheduling request is present but the recurrence pattern is unclear, default to "ONCE".
-            2. Extract a relative time period into "duration" using strict ISO-8601 format (for example, "PT2M").
-                And 24h format "startDateTime" (for example, "2026-08-10T10:00:00Z"). Defaults to current time if not specified.
+            2. Extract a relative time period into "duration" using strict ISO-8601 format.
+                - Minutes/Hours MUST use 'T' (e.g., "PT2M", "PT1H").
+                - Days MUST NOT use 'T' (e.g., 1 day is "P1D", 2 days is "P2D").
+                - CRITICAL: "PT1D" is mathematically invalid syntax. You are strictly forbidden from outputting "PT1D".
             3. CRITICAL: Clean "scheduleInstruction" by removing raw timing, frequency, and scheduling command-prefix wording.
-               Example: "every 5 mins run backup" becomes "Run backup".
+               (for example, "every 5 mins run backup" becomes "Run backup").
             4. "scheduleInstruction" must contain only the action to execute, not when, how often, or scheduling metadata.
             5. For a valid scheduling request, apply the same capability check as a normal request before returning EXECUTE.
             6. When scheduleMode is OFF, do not infer or populate any scheduling fields even if the user mentions a schedule.

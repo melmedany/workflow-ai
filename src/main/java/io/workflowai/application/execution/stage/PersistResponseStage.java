@@ -33,7 +33,7 @@ public class PersistResponseStage {
         conversationMessageStorage.save(
                 state.conversationId(),
                 state.agentProperties().id(),
-                new ConversationMessage(ConversationMessageRole.AGENT, finalResponse, false));
+                new ConversationMessage(ConversationMessageRole.AGENT, finalResponse));
         workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.PERSIST_RESPONSE));
 
         // Emitted as simulated token chunks over the existing WorkflowEvent.Token schema, so chat.js
