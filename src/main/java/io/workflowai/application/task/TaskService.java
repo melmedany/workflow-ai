@@ -11,12 +11,10 @@ import org.jobrunr.jobs.states.IllegalJobStateChangeException;
 import org.jobrunr.storage.JobNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.DigestUtils;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -46,22 +44,22 @@ public class TaskService implements TaskUseCase {
             return create(agentId, conversationId, instruction, scheduleType, startDateTime, duration);
         }
 
-        String intentKey = intentKey(instruction);
+        String intentKey = generateIntentKey(instruction);
 
-        ConversationTask matchingTask = tasks.stream().filter(t -> intentKey.equalsIgnoreCase(t.definition().intentKey()))
+        ConversationTask matchingTask = tasks.stream().filter(t -> intentKey.equals(t.definition().intentKey()))
                 .findFirst()
                 .orElse(null);
 
         if (matchingTask == null) {
             return create(agentId, conversationId, instruction, scheduleType, startDateTime, duration);
-        } else {
-            return update(matchingTask, instruction, startDateTime, duration);
         }
+
+        return update(matchingTask, instruction, startDateTime, duration);
     }
 
     private ConversationTask create(UUID agentId, UUID conversationId, String instruction,
                                     ScheduleType scheduleType, Instant startDateTime, String duration) {
-        String intentKey = intentKey(instruction);
+        String intentKey = generateIntentKey(instruction);
 
         TaskDefinition definition = new TaskDefinition(instruction, intentKey, instruction); // using instruction as an initial task name
         TaskSchedule schedule = new TaskSchedule(scheduleType, startDateTime, duration, TaskStatus.ACTIVE);
@@ -70,37 +68,67 @@ public class TaskService implements TaskUseCase {
         ConversationTask task = ConversationTask.newTask(agentId, conversationId, definition, schedule, runInfo);
 
         String jobId = scheduler.schedule(task);
-        return storage.create(task.withJobId(jobId));
+        ConversationTask scheduledTask = task.withJobId(jobId);
+        try {
+            return storage.create(scheduledTask);
+        } catch (RuntimeException ex) {
+            log.error("Failed to create conversation task: {}", task.id(), ex);
+            scheduler.cancel(scheduledTask);
+            throw ex;
+        }
     }
 
     private ConversationTask update(ConversationTask existingTask, String instruction, Instant startDateTime, String duration) {
         ConversationTask updatedTask = existingTask.update(instruction, startDateTime, duration);
 
-        String jobId = scheduler.reschedule(updatedTask);
+        boolean reschedule = existingTask.schedule().status() == TaskStatus.ACTIVE;
+        if (reschedule) {
+            updatedTask = updatedTask.withJobId(scheduler.reschedule(updatedTask));
+        }
 
-        return storage.update(updatedTask.withJobId(jobId));
+        try {
+            return storage.update(updatedTask);
+        } catch (RuntimeException ex) {
+            log.error("Failed to update conversation task: {}, keeping original job scheduled", existingTask.id(), ex);
+            if (reschedule) {
+                scheduler.reschedule(existingTask);
+            }
+            throw ex;
+        }
     }
 
     @Override
     public void pause(UUID agentId, UUID conversationId, UUID taskId) {
         ConversationTask task = findTaskWithStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE);
         scheduler.pause(task);
-        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.PAUSED);
+        try {
+            storage.updateStatus(agentId, conversationId, taskId, TaskStatus.PAUSED);
+        } catch (RuntimeException ex) {
+            log.error("Failed to pause conversation task: {}, keeping original job running", task.id(), ex);
+            scheduler.resume(task);
+            throw ex;
+        }
     }
 
     @Override
     public void resume(UUID agentId, UUID conversationId, UUID taskId) {
         ConversationTask task = findTaskWithStatus(agentId, conversationId, taskId, TaskStatus.PAUSED);
-        scheduler.resume(task.withStatus(TaskStatus.ACTIVE));
-        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE);
+        ConversationTask activeTask = task.withStatus(TaskStatus.ACTIVE);
+        scheduler.resume(activeTask);
+        try {
+            storage.updateStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE);
+        } catch (RuntimeException ex) {
+            log.error("Failed to resume conversation task: {}, keeping original job paused", task.id(), ex);
+            scheduler.pause(task);
+            throw ex;
+        }
     }
 
     @Override
     public void cancel(UUID agentId, UUID conversationId, UUID taskId) {
         ConversationTask task = storage.findTask(agentId, conversationId, taskId)
                 .orElseThrow(() -> new TaskNotFoundException(taskId));
-        scheduler.cancel(task);
-        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.CANCELLED);
+        cancel(task);
     }
 
     @Override
@@ -109,14 +137,24 @@ public class TaskService implements TaskUseCase {
 
         for (ConversationTask task : tasks) {
             try {
-                scheduler.cancel(task);
-                storage.updateStatus(agentId, conversationId, task.id(), TaskStatus.CANCELLED);
-                log.debug("Cancelled task {} - jobId {}", task.id(), task.runInfo().jobId());
+                cancel(task);
             } catch (JobNotFoundException | IllegalJobStateChangeException ex) {
                 log.warn("Failed to cancel job {}", task.id(), ex);
             } catch (TaskNotFoundException ex) {
                 log.warn("Failed to cancel task {}", task.id(), ex);
             }
+        }
+    }
+
+    public void cancel(ConversationTask task) {
+        try {
+            scheduler.cancel(task);
+            storage.updateStatus(task.agentId(), task.conversationId(), task.id(), TaskStatus.CANCELLED);
+            log.debug("Cancelled task {} - jobId {}", task.id(), task.runInfo().jobId());
+        } catch (RuntimeException ex) {
+            log.error("Failed to cancel conversation task: {}, keeping original job scheduled", task.id(), ex);
+            scheduler.schedule(task);
+            throw ex;
         }
     }
 
@@ -130,14 +168,8 @@ public class TaskService implements TaskUseCase {
                 .orElseThrow(() -> new TaskNotFoundException(taskId));
     }
 
-    private static String intentKey(String instruction) {
+    private static String generateIntentKey(String instruction) {
         String normalized = instruction.trim().toLowerCase(Locale.ROOT);
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 unavailable", ex);
-        }
+        return DigestUtils.md5DigestAsHex(normalized.getBytes(StandardCharsets.UTF_8));
     }
 }

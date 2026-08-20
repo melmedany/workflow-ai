@@ -16,6 +16,7 @@ import io.workflowai.application.execution.workflow.WorkflowPrompts;
 import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.domain.agent.ChatProviderId;
+import io.workflowai.domain.exceptions.ChatProviderCallException;
 import io.workflowai.domain.exceptions.ChatProviderStreamingException;
 import io.workflowai.domain.exceptions.GuardrailBlockedException;
 import org.slf4j.Logger;
@@ -50,14 +51,13 @@ public abstract class AbstractChatProvider implements ChatProvider {
         this.outputGuardrail = outputGuardrail;
     }
 
-    protected String resolveModel(String requestedModel, String defaultModel) {
+    protected String resolveModel(String requestedModel) {
         if (supportsModel(requestedModel)) {
             log.debug("Resolved model [{}] for provider [{}]", requestedModel, getId());
             return requestedModel;
         }
-        log.warn("Model [{}] not supported by provider [{}], falling back to default [{}]",
-                requestedModel, getId(), defaultModel);
-        return defaultModel;
+        throw new ChatProviderCallException(getId(), "Unsupported model [%s] for provider [%s]. Supported models: %s"
+                .formatted(requestedModel, getId(), supportedModels()));
     }
 
     protected List<ChatMessage> buildMessages(ChatCompletionRequest request) {

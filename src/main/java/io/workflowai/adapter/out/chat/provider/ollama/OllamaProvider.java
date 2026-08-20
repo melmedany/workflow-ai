@@ -65,7 +65,7 @@ public class OllamaProvider extends AbstractChatProvider {
 
     @Override
     public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
-        String model = resolveModel(request.model(), properties.defaultModel());
+        String model = resolveModel(request.model());
 
         ensureModelAvailable(model);
 
@@ -79,7 +79,7 @@ public class OllamaProvider extends AbstractChatProvider {
 
     @Override
     public String call(ChatCompletionRequest request) {
-        String model = resolveModel(request.model(), properties.defaultModel());
+        String model = resolveModel(request.model());
 
         ensureModelAvailable(model);
 

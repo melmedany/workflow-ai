@@ -49,7 +49,7 @@ public class OpenAiProvider extends AbstractOpenAiProvider {
 
     @Override
     public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
-        String resolvedModel = resolveModel(request.model(), properties.defaultModel());
+        String resolvedModel = resolveModel(request.model());
         List<ChatMessage> messages = buildMessages(request);
         StreamingChatModel streaming = resolvedModel.equals(properties.defaultModel())
                 ? getDefaultStreamingModel(properties.defaultModel, properties.defaultTemperature)
@@ -60,7 +60,7 @@ public class OpenAiProvider extends AbstractOpenAiProvider {
 
     @Override
     public String call(ChatCompletionRequest request) {
-        String resolvedModel = resolveModel(request.model(), properties.defaultModel());
+        String resolvedModel = resolveModel(request.model());
         List<ChatMessage> messages = buildMessages(request);
         ChatModel chatModel = resolvedModel.equals(properties.defaultModel())
                 ? getDefaultChatModel(properties.defaultModel, properties.defaultTemperature)

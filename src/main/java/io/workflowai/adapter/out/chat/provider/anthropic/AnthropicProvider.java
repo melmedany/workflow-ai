@@ -51,7 +51,7 @@ public class AnthropicProvider extends AbstractChatProvider {
 
     @Override
     public String stream(ChatCompletionRequest request, Consumer<String> tokenConsumer) {
-        String model = resolveModel(request.model(), properties.defaultModel());
+        String model = resolveModel(request.model());
         List<ChatMessage> messages = buildMessages(request);
         StreamingChatModel streaming = model.equals(properties.defaultModel())
                 ? getDefaultStreamingModel(properties.defaultModel(), properties.defaultTemperature())
@@ -62,7 +62,7 @@ public class AnthropicProvider extends AbstractChatProvider {
 
     @Override
     public String call(ChatCompletionRequest request) {
-        String model = resolveModel(request.model(), properties.defaultModel());
+        String model = resolveModel(request.model());
         List<ChatMessage> messages = buildMessages(request);
         ChatModel chatModel = model.equals(properties.defaultModel())
                 ? getDefaultChatModel(properties.defaultModel(), properties.defaultTemperature())

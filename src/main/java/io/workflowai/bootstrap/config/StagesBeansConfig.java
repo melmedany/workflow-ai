@@ -35,11 +35,13 @@ import static io.workflowai.application.execution.stage.StageSettings.StageSetti
 class StagesBeansConfig {
 
     @Bean
-    StageSettings stageSettings(StagesProperties properties) {
-        return new StageSettings(properties.stages().stream()
+    StageSettings stageSettings(StagesProperties properties, ChatProviderRegistry registry) {
+        List<StageSetting> settings = properties.stages().stream()
                 .map(stage -> new StageSetting(
                         stage.stageId(), stage.chatProviderId(), stage.model(), stage.temperature()))
-                .toList());
+                .toList();
+        settings.forEach(setting -> registry.validate(setting.chatProviderId(), setting.model()));
+        return new StageSettings(settings);
     }
 
     @Bean

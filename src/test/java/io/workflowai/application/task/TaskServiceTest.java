@@ -7,21 +7,19 @@ import io.workflowai.domain.task.ConversationTask;
 import io.workflowai.domain.task.ConversationTask.TaskDefinition;
 import io.workflowai.domain.task.ConversationTask.TaskRunInfo;
 import io.workflowai.domain.task.ConversationTask.TaskSchedule;
-import io.workflowai.domain.task.ConversationTask.TaskSchedule.ScheduleType;
 import io.workflowai.domain.task.TaskStatus;
 import org.jobrunr.storage.JobNotFoundException;
 import org.junit.jupiter.api.Test;
+import org.springframework.util.DigestUtils;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import static io.workflowai.domain.task.ConversationTask.TaskSchedule.ScheduleType.RECURRING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,7 +51,7 @@ class TaskServiceTest {
         when(storage.create(any(ConversationTask.class))).thenReturn(task);
 
         ConversationTask result = taskService.createOrUpdate(agentId, conversationId, "Summarize open PRs",
-                ScheduleType.RECURRING, Instant.now(), "P1D");
+                RECURRING, Instant.now(), "P1D");
 
         verify(scheduler).schedule(any(ConversationTask.class));
         verify(storage).create(any(ConversationTask.class));
@@ -70,7 +68,7 @@ class TaskServiceTest {
         when(scheduler.schedule(created)).thenReturn("job-2");
 
         taskService.createOrUpdate(agentId, conversationId, "Send weekly digest",
-                ScheduleType.RECURRING, Instant.now(), "P1D");
+                RECURRING, Instant.now(), "P1D");
 
         verify(storage).create(any(ConversationTask.class));
         verify(storage, never()).update(any(ConversationTask.class));
@@ -78,7 +76,7 @@ class TaskServiceTest {
 
     @Test
     void updatesTheMatchingTaskWhenInstructionDiffersOnlyByCaseAndWhitespace() {
-        ConversationTask existing = task("summarize open prs", TaskStatus.PAUSED, UUID.randomUUID().toString());
+        ConversationTask existing = task("summarize open prs", TaskStatus.ACTIVE, UUID.randomUUID().toString());
         when(storage.findByConversation(agentId, conversationId)).thenReturn(List.of(existing));
 
         ConversationTask updated = existing.update("  Summarize Open PRs  ", Instant.now(), "P2D");
@@ -86,7 +84,7 @@ class TaskServiceTest {
         when(scheduler.reschedule(any(ConversationTask.class))).thenReturn("job-3");
 
         taskService.createOrUpdate(agentId, conversationId, "  Summarize Open PRs  ",
-                ScheduleType.RECURRING, Instant.now(), "P2D");
+                RECURRING, Instant.now(), "P2D");
 
         verify(storage, never()).create(any(ConversationTask.class));
         verify(scheduler).reschedule(any(ConversationTask.class));
@@ -100,9 +98,66 @@ class TaskServiceTest {
         when(scheduler.reschedule(any(ConversationTask.class))).thenReturn("job-4");
 
         ConversationTask result = taskService.createOrUpdate(agentId, conversationId, "Summarize open PRs",
-                ScheduleType.RECURRING, Instant.now(), "P2D");
+                RECURRING, Instant.now(), "P2D");
 
         assertThat(result.schedule().status()).isEqualTo(TaskStatus.PAUSED);
+    }
+
+    @Test
+    void updatingAPausedTaskDoesNotRescheduleTheJob() {
+        ConversationTask existing = task("Summarize open PRs", TaskStatus.PAUSED, "job-1");
+        when(storage.findByConversation(agentId, conversationId)).thenReturn(List.of(existing));
+        when(storage.update(any(ConversationTask.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        taskService.createOrUpdate(agentId, conversationId, "Summarize open PRs", RECURRING, Instant.now(), "P2D");
+
+        verify(scheduler, never()).reschedule(any());
+        verify(storage).update(any(ConversationTask.class));
+    }
+
+    @Test
+    void createFailSafeByCancellingTheJobWhenStorageCreateFails() {
+        when(storage.findByConversation(agentId, conversationId)).thenReturn(List.of());
+        String jobId = UUID.randomUUID().toString();
+        when(scheduler.schedule(any(ConversationTask.class))).thenReturn(jobId);
+        RuntimeException storageFailure = new RuntimeException("db unavailable");
+        when(storage.create(any(ConversationTask.class))).thenThrow(storageFailure);
+
+        assertThatThrownBy(() -> taskService.createOrUpdate(agentId, conversationId, "Summarize open PRs",
+                RECURRING, Instant.now(), "P1D"))
+                .isSameAs(storageFailure);
+
+        verify(scheduler).cancel(argThat(t -> jobId.equals(t.runInfo().jobId())));
+    }
+
+    @Test
+    void updateFailSafeByReschedulingThePriorScheduleWhenStorageUpdateFails() {
+        ConversationTask existing = task("Summarize open PRs", TaskStatus.ACTIVE, "job-old");
+        when(storage.findByConversation(agentId, conversationId)).thenReturn(List.of(existing));
+        when(scheduler.reschedule(any(ConversationTask.class))).thenReturn("job-new");
+        RuntimeException storageFailure = new RuntimeException("db unavailable");
+        when(storage.update(any(ConversationTask.class))).thenThrow(storageFailure);
+
+        assertThatThrownBy(() -> taskService.createOrUpdate(agentId, conversationId, "Summarize open PRs",
+                RECURRING, Instant.now(), "P2D"))
+                .isSameAs(storageFailure);
+
+        verify(scheduler).reschedule(argThat(t -> "P2D".equals(t.schedule().duration())));
+        verify(scheduler).reschedule(argThat(t -> "P1D".equals(t.schedule().duration())));
+    }
+
+    @Test
+    void updatingAPausedTaskNeverCallsTheSchedulerEvenWhenStorageUpdateFails() {
+        ConversationTask existing = task("Summarize open PRs", TaskStatus.PAUSED, "job-1");
+        when(storage.findByConversation(agentId, conversationId)).thenReturn(List.of(existing));
+        RuntimeException storageFailure = new RuntimeException("db unavailable");
+        when(storage.update(any(ConversationTask.class))).thenThrow(storageFailure);
+
+        assertThatThrownBy(() -> taskService.createOrUpdate(agentId, conversationId, "Summarize open PRs",
+                RECURRING, Instant.now(), "P2D"))
+                .isSameAs(storageFailure);
+
+        verify(scheduler, never()).reschedule(any());
     }
 
     @Test
@@ -117,6 +172,20 @@ class TaskServiceTest {
     }
 
     @Test
+    void pauseFailSafeByResumingTheJobWhenStorageUpdateStatusFails() {
+        ConversationTask task = task("Summarize open PRs", TaskStatus.ACTIVE, "job-1");
+        when(storage.findTaskWithStatus(agentId, conversationId, task.id(), TaskStatus.ACTIVE)).thenReturn(Optional.of(task));
+        RuntimeException storageFailure = new RuntimeException("db unavailable");
+        doThrow(storageFailure).when(storage).updateStatus(agentId, conversationId, task.id(), TaskStatus.PAUSED);
+
+        assertThatThrownBy(() -> taskService.pause(agentId, conversationId, task.id()))
+                .isSameAs(storageFailure);
+
+        verify(scheduler).pause(any(ConversationTask.class));
+        verify(scheduler).resume(any(ConversationTask.class));
+    }
+
+    @Test
     void resumeUpdatesStatusAndCallsScheduler() {
         ConversationTask task = task("Summarize open PRs", TaskStatus.PAUSED, UUID.randomUUID().toString());
         when(storage.findTaskWithStatus(agentId, conversationId, task.id(), TaskStatus.PAUSED)).thenReturn(Optional.of(task));
@@ -128,6 +197,20 @@ class TaskServiceTest {
     }
 
     @Test
+    void resumeFailSafeByPausingTheJobWhenStorageUpdateStatusFails() {
+        ConversationTask task = task("Summarize open PRs", TaskStatus.PAUSED, "job-1");
+        when(storage.findTaskWithStatus(agentId, conversationId, task.id(), TaskStatus.PAUSED)).thenReturn(Optional.of(task));
+        RuntimeException storageFailure = new RuntimeException("db unavailable");
+        doThrow(storageFailure).when(storage).updateStatus(agentId, conversationId, task.id(), TaskStatus.ACTIVE);
+
+        assertThatThrownBy(() -> taskService.resume(agentId, conversationId, task.id()))
+                .isSameAs(storageFailure);
+
+        verify(scheduler).resume(any(ConversationTask.class));
+        verify(scheduler).pause(any(ConversationTask.class));
+    }
+
+    @Test
     void cancelUpdatesStatusAndCallsScheduler() {
         ConversationTask task = task("Summarize open PRs", TaskStatus.ACTIVE, UUID.randomUUID().toString());
         when(storage.findTask(agentId, conversationId, task.id())).thenReturn(Optional.of(task));
@@ -136,6 +219,20 @@ class TaskServiceTest {
 
         verify(storage).updateStatus(agentId, conversationId, task.id(), TaskStatus.CANCELLED);
         verify(scheduler).cancel(any(ConversationTask.class));
+    }
+
+    @Test
+    void cancelFailSafeByReschedulingTheJobWhenStorageUpdateStatusFails() {
+        ConversationTask task = task("Summarize open PRs", TaskStatus.ACTIVE, "job-1");
+        when(storage.findTask(agentId, conversationId, task.id())).thenReturn(Optional.of(task));
+        RuntimeException storageFailure = new RuntimeException("db unavailable");
+        doThrow(storageFailure).when(storage).updateStatus(agentId, conversationId, task.id(), TaskStatus.CANCELLED);
+
+        assertThatThrownBy(() -> taskService.cancel(agentId, conversationId, task.id()))
+                .isSameAs(storageFailure);
+
+        verify(scheduler).cancel(any(ConversationTask.class));
+        verify(scheduler).schedule(any(ConversationTask.class));
     }
 
     @Test
@@ -186,8 +283,8 @@ class TaskServiceTest {
 
     private ConversationTask task(String instruction, TaskStatus status, String jobId) {
         return ConversationTask.newTask(agentId, conversationId,
-                new TaskDefinition(instruction, intentKey(instruction), instruction),
-                new TaskSchedule(ScheduleType.RECURRING, Instant.now(), "P1D", status),
+                new TaskDefinition(instruction, generateIntentKey(instruction), instruction),
+                new TaskSchedule(RECURRING, Instant.now(), "P1D", status),
                 new TaskRunInfo(jobId, null, null));
     }
 
@@ -195,14 +292,8 @@ class TaskServiceTest {
      * Mirrors TaskService's private intentKey algorithm exactly, so test fixtures produce the same dedup key the
      * service will compute for a given instruction.
      */
-    private static String intentKey(String instruction) {
+    private static String generateIntentKey(String instruction) {
         String normalized = instruction.trim().toLowerCase(Locale.ROOT);
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 unavailable", ex);
-        }
+        return DigestUtils.md5DigestAsHex(normalized.getBytes(StandardCharsets.UTF_8));
     }
 }

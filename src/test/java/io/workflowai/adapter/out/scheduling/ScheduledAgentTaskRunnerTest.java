@@ -99,6 +99,19 @@ class ScheduledAgentTaskRunnerTest {
     }
 
     @Test
+    void onceTaskPausedOrCancelledWhileTheRunWasInFlightIsNotClobberedBackToCompleted() {
+        ConversationTask task = task(ScheduleType.ONCE, TaskStatus.ACTIVE);
+        when(storage.findTaskWithStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE)).thenReturn(Optional.of(task));
+        UUID runId = UUID.randomUUID();
+        when(agentUseCase.trigger(any(AgentRequest.class), any())).thenReturn(runId);
+
+        runner.run(agentId, conversationId, taskId);
+
+        verify(storage).updateAfterRun(agentId, conversationId, taskId, runId);
+        verify(storage).updateStatus(agentId, conversationId, taskId, TaskStatus.COMPLETED);
+    }
+
+    @Test
     void recurringTaskIsNotMarkedCompletedAfterRunning() {
         ConversationTask task = task(ScheduleType.RECURRING, TaskStatus.ACTIVE);
         when(storage.findTaskWithStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE)).thenReturn(Optional.of(task));
