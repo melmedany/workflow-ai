@@ -29,7 +29,7 @@ generated model response that contains a blocked term before it is returned to t
 
 ## Failure modes
 
-- Blocked-term match → non-fatal `failure(...)`, allowing the caller (`AbstractChatProvider`) to decide the
+- Blocked-term match -> non-fatal `failure(...)`, allowing the caller (`AbstractChatProvider`) to decide the
   consequence (currently: replace the response text with `WorkflowPrompts.GUARDRAIL_FALLBACK_MESSAGE`).
 
 ## Edge Cases

@@ -52,7 +52,7 @@ and delivering it to the specific consumer registered for that workflow run.
 
 ## Failure modes
 
-- No consumer registered (or already revoked) for the `runId` → `IllegalStateException`, no event delivered, no event
+- No consumer registered (or already revoked) for the `runId` -> `IllegalStateException`, no event delivered, no event
   silently dropped either. This is a loud failure, not a no-op.
 
 ## Edge Cases

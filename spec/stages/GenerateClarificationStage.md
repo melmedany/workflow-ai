@@ -28,7 +28,7 @@ classifier already extracted and only falling back to a dedicated model call whe
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.GENERATE_CLARIFICATION`
+- `StageId stageId()` -> `StageId.GENERATE_CLARIFICATION`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria

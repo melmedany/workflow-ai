@@ -22,7 +22,7 @@ channels. This is the terminal node every graph path converges on.
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.COMPLETE`
+- `StageId stageId()` -> `StageId.COMPLETE`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria

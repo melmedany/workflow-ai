@@ -29,7 +29,7 @@ extract the schedule details (type, duration, instruction) as part of that same 
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.CLASSIFICATION`
+- `StageId stageId()` -> `StageId.CLASSIFICATION`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria
@@ -47,9 +47,9 @@ extract the schedule details (type, duration, instruction) as part of that same 
 
 ## Failure modes
 
-- Provider/network failure (timeout, unknown provider, unsupported model, guardrail block, etc.) → caught and turned
+- Provider/network failure (timeout, unknown provider, unsupported model, guardrail block, etc.) -> caught and turned
   into a fallback `REFUSE` decision so the workflow can still complete the turn.
-- Malformed/unparseable JSON from the model → `ClassificationException` propagates uncaught, since this indicates a
+- Malformed/unparseable JSON from the model -> `ClassificationException` propagates uncaught, since this indicates a
   contract violation the caller must handle explicitly rather than silently mask as a refusal.
 
 ## Edge Cases

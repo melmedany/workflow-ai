@@ -32,7 +32,7 @@ otherwise attempt exactly one retry, then accept whatever the retry produced as 
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.SELF_VERIFICATION`
+- `StageId stageId()` -> `StageId.SELF_VERIFICATION`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria

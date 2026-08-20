@@ -22,7 +22,7 @@ feed it to the model.
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.LOAD_MEMORY`
+- `StageId stageId()` -> `StageId.LOAD_MEMORY`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria

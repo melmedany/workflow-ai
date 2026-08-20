@@ -23,7 +23,7 @@ Point a mixed-scope request at its in-scope part, for a `REDIRECT` decision.
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.GENERATE_REDIRECT`
+- `StageId stageId()` -> `StageId.GENERATE_REDIRECT`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria

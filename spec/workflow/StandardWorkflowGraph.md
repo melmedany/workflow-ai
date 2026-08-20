@@ -19,17 +19,17 @@ based on trigger source and classification decision, while guaranteeing every br
 
 - Full routing table:
     - `START -> PERSIST_USER_MESSAGE -> LOAD_MEMORY` (always, regardless of trigger source).
-    - `LOAD_MEMORY -> CLASSIFICATION` when `triggerSource() == USER_MESSAGE`; `LOAD_MEMORY -> EXECUTE_WORKFLOW` when
+    - `LOAD_MEMORY -> CLASSIFICATION` when `triggerSource() == USER_MESSAGE`, `LOAD_MEMORY -> EXECUTE_WORKFLOW` when
       `triggerSource() == SYSTEM_TRIGGER` (scheduled runs skip classification entirely).
     - `CLASSIFICATION -> EXECUTE_WORKFLOW` for decision mode `EXECUTE` without `schedulingRequested()`.
     - `CLASSIFICATION -> CREATE_TASK` for decision mode `EXECUTE` WITH `schedulingRequested()` (the synthetic
       `EXECUTE_SCHEDULE` routing target, never a real `DecisionMode` value stored on the decision itself).
-    - `CLASSIFICATION -> GENERATE_CLARIFICATION` for `CLARIFY`; `-> GENERATE_GREETING` for `GREET`; `->
-    GENERATE_REDIRECT` for `REDIRECT`; `-> GENERATE_REFUSAL` for `REFUSE` (including when `routingDecision()` is absent,
+    - `CLASSIFICATION -> GENERATE_CLARIFICATION` for `CLARIFY`, `-> GENERATE_GREETING` for `GREET`, `->
+    GENERATE_REDIRECT` for `REDIRECT`, `-> GENERATE_REFUSAL` for `REFUSE` (including when `routingDecision()` is absent,
       defaulted to `REFUSE`).
     - `EXECUTE_WORKFLOW -> SELF_VERIFICATION -> COMPACT_MEMORY` (always, unconditional).
     - `CREATE_TASK -> COMPACT_MEMORY` when its resulting decision mode is `EXECUTE` (task created/updated, or no
-      decision override); `-> GENERATE_CLARIFICATION` for `CLARIFY`; `-> GENERATE_REFUSAL` for `REFUSE`.
+      decision override), `-> GENERATE_CLARIFICATION` for `CLARIFY`, `-> GENERATE_REFUSAL` for `REFUSE`.
     - `GENERATE_CLARIFICATION -> COMPACT_MEMORY`, `GENERATE_GREETING -> COMPACT_MEMORY`, `GENERATE_REDIRECT ->
     COMPACT_MEMORY`, `GENERATE_REFUSAL -> COMPACT_MEMORY` (always, unconditional).
     - `COMPACT_MEMORY -> COMPLETE -> END` (always, unconditional).
@@ -66,10 +66,10 @@ based on trigger source and classification decision, while guaranteeing every br
 
 ## Failure modes
 
-- Missing a `WorkflowStage` implementation for a `StageId` referenced by the graph → `WorkflowBuildException` at build
+- Missing a `WorkflowStage` implementation for a `StageId` referenced by the graph -> `WorkflowBuildException` at build
   time (`stateGraph.addNode` receives `null`).
 - An unmapped edge-condition string reaching `addConditionalEdges` (e.g. `CreateTaskStage` returning a decision mode
-  outside `{EXECUTE, CLARIFY, REFUSE}`) → a runtime graph-navigation failure for that turn, surfaced as a failed
+  outside `{EXECUTE, CLARIFY, REFUSE}`) -> a runtime graph-navigation failure for that turn, surfaced as a failed
   `WorkflowExecutionResult`, not silently ignored.
 
 ## Edge Cases

@@ -460,8 +460,11 @@ Adding a model provider is the extension point a contributor is most likely to t
 buffered `call`, a token-consuming `stream`, and the set of models it supports.
 
 Most of the work is already shared. `AbstractChatProvider` builds the message list, applies the input guardrail before
-the call and the output guardrail to the result, falls back to the provider's default model when a requested model is
-not supported, and turns LangChain4j's streaming callbacks into a synchronous call that returns the full text.
+the call and the output guardrail to the result, rejects a requested model that isn't in the provider's supported set
+with a `ChatProviderCallException` instead of silently substituting another one, and turns LangChain4j's streaming
+callbacks into a synchronous call that returns the full text. Per-stage models (`workflow-ai.stages`) are validated
+against the registry at startup for the same reason: a misconfigured model should fail loudly, not get swapped out
+quietly at first use.
 `AbstractOpenAiProvider` adds a complete implementation for any OpenAI-compatible endpoint: `OpenAiProvider`
 and `BonzaiProvider` both build on it, and Bonzai adds nothing beyond its own configuration record.
 `OllamaProvider` and `AnthropicProvider` extend `AbstractChatProvider` directly because their model builders differ.

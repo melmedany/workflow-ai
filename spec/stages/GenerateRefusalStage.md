@@ -23,7 +23,7 @@ Politely decline an out-of-scope or unsafe request, for a `REFUSE` decision, wit
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.GENERATE_REFUSAL`
+- `StageId stageId()` -> `StageId.GENERATE_REFUSAL`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria

@@ -35,7 +35,7 @@ paused/resumed, and eventually cancelled or completed.
 ## Acceptance criteria
 
 - New task status is `ACTIVE`.
-- `pause` → `PAUSED`, `resume` → `ACTIVE`, `cancel` → `CANCELLED`.
+- `pause` -> `PAUSED`, `resume` -> `ACTIVE`, `cancel` -> `CANCELLED`.
 - A `ONCE` task's status becomes `COMPLETED` after its scheduled run fires.
 - A `RECURRING` task's status is unaffected by firing its scheduled run (stays whatever it was, typically `ACTIVE`).
 - Editing an existing task's instruction/schedule never changes its current status.

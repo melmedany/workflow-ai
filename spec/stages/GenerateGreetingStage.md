@@ -24,7 +24,7 @@ Produce a short, in-persona greeting stating what the agent can help with, for a
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.GENERATE_GREETING`
+- `StageId stageId()` -> `StageId.GENERATE_GREETING`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria

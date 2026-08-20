@@ -31,7 +31,7 @@ agent's response contract, so `SELF_VERIFICATION` can decide whether to accept o
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.EXECUTE_WORKFLOW`
+- `StageId stageId()` -> `StageId.EXECUTE_WORKFLOW`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria
@@ -49,7 +49,7 @@ agent's response contract, so `SELF_VERIFICATION` can decide whether to accept o
 
 ## Failure modes
 
-- `GuardrailBlockedException` → caught, converted into a safe fallback response (see above). Not propagated.
+- `GuardrailBlockedException` -> caught, converted into a safe fallback response (see above). Not propagated.
 - Any other exception from the provider call (timeout, unknown provider, etc.) is not caught here and propagates to the
   caller.
 

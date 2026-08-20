@@ -24,7 +24,7 @@ who/what triggered the run.
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.PERSIST_USER_MESSAGE`
+- `StageId stageId()` -> `StageId.PERSIST_USER_MESSAGE`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria

@@ -42,31 +42,31 @@ user in plain language, or fall back to `CLARIFY`/`REFUSE` when the request can'
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.CREATE_TASK`
+- `StageId stageId()` -> `StageId.CREATE_TASK`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria
 
-- `SYSTEM_TRIGGER` run → `REFUSE`, zero `TaskUseCase` interactions, `stageCompleted` still emitted.
-- `null`/blank cleaned instruction → `REFUSE` with the instruction-extraction reason, zero `TaskUseCase`
+- `SYSTEM_TRIGGER` run -> `REFUSE`, zero `TaskUseCase` interactions, `stageCompleted` still emitted.
+- `null`/blank cleaned instruction -> `REFUSE` with the instruction-extraction reason, zero `TaskUseCase`
   interactions.
-- Valid `RECURRING` or `ONCE` schedule → a task created/updated with the exact cleaned instruction, schedule type,
+- Valid `RECURRING` or `ONCE` schedule -> a task created/updated with the exact cleaned instruction, schedule type,
   parsed start time, and duration. Response contains the task's instruction `KEY_VALIDATION_PASSED = true`.
-- `TaskUseCase` throwing `DateTimeParseException`, `IllegalArgumentException`, or `InvalidScheduleException` →
+- `TaskUseCase` throwing `DateTimeParseException`, `IllegalArgumentException`, or `InvalidScheduleException` ->
   `CLARIFY` with a non-blank `clarificationQuestion`.
 - A decision missing a usable `scheduleType` or `startDateTime` (e.g. `null`) is treated the same as an
   unparsable one and produces `CLARIFY` rather than propagating an exception.
-- `TaskUseCase` throwing `ScheduleTooFrequentException` → `REFUSE` with the exception's message as the reason.
+- `TaskUseCase` throwing `ScheduleTooFrequentException` -> `REFUSE` with the exception's message as the reason.
 - Every outcome emits exactly one `stageStarted` and one `stageCompleted` for `CREATE_TASK`.
 
 ## Failure modes
 
-- Missing `routingDecision()` on the state → `IllegalStateException("CREATE_TASK reached without a routing
+- Missing `routingDecision()` on the state -> `IllegalStateException("CREATE_TASK reached without a routing
   decision")`. Not a normal user-facing outcome, indicates a workflow graph bug.
-- `DateTimeParseException` / `IllegalArgumentException` / `InvalidScheduleException` from `TaskUseCase` → converted
+- `DateTimeParseException` / `IllegalArgumentException` / `InvalidScheduleException` from `TaskUseCase` -> converted
   to `CLARIFY`.
-- `ScheduleTooFrequentException` from `TaskUseCase` → converted to `REFUSE`.
-- Missing/`null` scheduling fields on the decision → intended to be handled the same as a parse failure (`CLARIFY`),
+- `ScheduleTooFrequentException` from `TaskUseCase` -> converted to `REFUSE`.
+- Missing/`null` scheduling fields on the decision -> intended to be handled the same as a parse failure (`CLARIFY`),
   not to crash the stage.
 
 ## Edge Cases

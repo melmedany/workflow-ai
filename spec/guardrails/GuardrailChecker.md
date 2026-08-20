@@ -43,7 +43,7 @@ term that matched.
 
 ## Failure modes
 
-- No blocked terms configured → always returns `Optional.empty()`. This is normal, not an error.
+- No blocked terms configured -> always returns `Optional.empty()`. This is normal, not an error.
 - Terms containing regex metacharacters are treated as literal text (quoted), so they can never cause a pattern
   compilation error or unintended regex behaviour.
 

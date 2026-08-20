@@ -22,8 +22,9 @@ the agent workflow for it (`SYSTEM_TRIGGER`) and record the outcome, completing 
   task.id(), "SCHEDULED: " + instruction)` and a no-op event consumer. This run is fire-and-forget from the scheduler's
   perspective. It does not stream events anywhere.
 - After a successful trigger, `ConversationTaskStorage.updateAfterRun` is always called with the new run id.
-- If the task is `ONCE` (`runOnce()`), its status is additionally set to `COMPLETED` after `updateAfterRun`. A
-  `ONCE` task never fires a second time.
+- If the task is `ONCE` (`runOnce()`), `ConversationTaskStorage.updateStatus(..., COMPLETED)` is called unconditionally
+  right after `updateAfterRun`. A `ONCE` task never fires a second time once this succeeds, since a future eligibility
+  check via `findTaskWithStatus(..., ACTIVE)` will no longer find it.
 - If the task is `RECURRING`, its status is left untouched (stays `ACTIVE`) so it can fire again on its next schedule.
 - Returns `void`. There is no way for a caller to observe the success / failure of the triggered workflow run from this
   method's return value.
@@ -34,12 +35,12 @@ the agent workflow for it (`SYSTEM_TRIGGER`) and record the outcome, completing 
 
 ## Acceptance criteria
 
-- Task not found → zero interactions with `AgentUseCase` or `ConversationTaskStorage.updateAfterRun`/`updateStatus`.
-- Task found but `PAUSED`/`CANCELLED`/`COMPLETED` → zero interactions with `AgentUseCase` or those storage methods.
-- Task found and `ACTIVE`, `ONCE` schedule → exactly one `AgentUseCase.trigger` call with a `SYSTEM_TRIGGER` request
+- Task isn’t found -> zero interactions with `AgentUseCase` or `ConversationTaskStorage.updateAfterRun`/`updateStatus`.
+- Task found but `PAUSED`/`CANCELLED`/`COMPLETED` -> zero interactions with `AgentUseCase` or those storage methods.
+- Task found and `ACTIVE`, `ONCE` schedule -> exactly one `AgentUseCase.trigger` call with a `SYSTEM_TRIGGER` request
   referencing the task's own ids and an instruction-derived message, followed by exactly one `updateAfterRun` and
-  exactly one `updateStatus(..., COMPLETED)`.
-- Task found and `ACTIVE`, `RECURRING` schedule → exactly one `trigger` call and exactly one `updateAfterRun`, and zero
+  exactly one `updateStatus(..., COMPLETED)` call.
+- Task found and `ACTIVE`, `RECURRING` schedule -> exactly one `trigger` call and exactly one `updateAfterRun`, and zero
   `updateStatus` calls.
 - The triggered `AgentRequest`'s message is exactly `"SCHEDULED: " + task.definition().instruction()`.
 
@@ -51,7 +52,14 @@ the agent workflow for it (`SYSTEM_TRIGGER`) and record the outcome, completing 
 ## Edge Cases
 
 - A task that transitions to `PAUSED`/`CANCELLED` between being scheduled and the job actually firing is correctly
-  skipped, because eligibility is re-checked live via `findTaskWithStatus` at fire time, not decided once at schedule time.
+  skipped, because eligibility is re-checked live via `findTaskWithStatus` at fire time, not decided once at schedule
+  time.
+- A task that transitions to `PAUSED`/`CANCELLED` WHILE its triggered run is still in flight (i.e. after this method's
+  initial eligibility check already passed) is a known, unresolved race for a `ONCE` task: the final status write is
+  an unconditional `updateStatus(..., COMPLETED)`, which clobbers whatever the concurrent pause/cancel just set back
+  to `COMPLETED`. This window is narrow (it requires a pause/cancel to land between the trigger call and this
+  method's return) and is accepted rather than guarded against. `RECURRING` tasks have no such race to begin with,
+  since a successful run never writes their status at all.
 
 ## Non-goals
 

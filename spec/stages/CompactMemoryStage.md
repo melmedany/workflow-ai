@@ -23,25 +23,28 @@ the latest exchange, when the agent has memory enabled.
 - A blank/`null` compaction result from the provider is treated as "nothing to update": the existing stored memory is
   left untouched.
 - Always returns an empty map, this stage never contributes new `WorkflowState` keys.
-- Emits `stageStarted(runId, COMPACT_MEMORY)` at the very start of every execution, and `stageCompleted(runId,
-  COMPACT_MEMORY)` exactly once per execution on every path when memory is enabled, or compaction is skipped.
+- Emits `stageStarted(runId, COMPACT_MEMORY)` before doing any work and `stageCompleted(runId, COMPACT_MEMORY)`
+  exactly once per execution, but only when `agentProperties().memoryEnabled()` is `true` (mirrors `LOAD_MEMORY`'s
+  event-emission rule). This holds on every enabled-memory path, whether compaction runs, is skipped (blank
+  response), or fails.
 
 ## Interfaces
 
-- `StageId stageId()` → `StageId.COMPACT_MEMORY`
+- `StageId stageId()` -> `StageId.COMPACT_MEMORY`
 - `Map<String, Object> execute(WorkflowState state)`
 
 ## Acceptance criteria
 
-- Memory disabled: zero interactions with the chat provider or `AgentMemoryStorage`. `stageCompleted` still fires.
+- Memory disabled: zero interactions with the chat provider or `AgentMemoryStorage`, and neither `stageStarted` nor
+  `stageCompleted` fires.
 - Memory enabled, blank/no generated response: zero interactions with the chat provider or `AgentMemoryStorage`.
 - Memory enabled, non-blank response, successful compaction: `AgentMemoryStorage.replace` is called with the compacted
   text for the correct `(conversationId, agentId)`.
 - Memory enabled, provider call throws: the exception is caught and logged. The stage does not propagate it, and
   `AgentMemoryStorage.replace` is never called.
 - Memory enabled, provider returns a blank compaction result: `AgentMemoryStorage.replace` is never called.
-- `stageStarted`/`stageCompleted` each fire exactly once per execution, on every registered `WorkflowEventStreamer`,
-  regardless of which path was taken.
+- When memory is enabled, `stageStarted`/`stageCompleted` each fire exactly once per execution, on every registered
+  `WorkflowEventStreamer`, regardless of which enabled-memory path was taken.
 
 ## Failure modes
 

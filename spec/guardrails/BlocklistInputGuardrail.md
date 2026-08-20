@@ -31,7 +31,7 @@ user message before it reaches the model.
 
 ## Failure modes
 
-- Blocked-term match → non-fatal `failure(...)`, allowing the caller (`AbstractChatProvider`) to decide the
+- Blocked-term match -> non-fatal `failure(...)`, allowing the caller (`AbstractChatProvider`) to decide the
   consequence (currently: raise `GuardrailBlockedException`).
 
 ## Edge Cases
