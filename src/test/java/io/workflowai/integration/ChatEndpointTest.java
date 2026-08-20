@@ -2,6 +2,7 @@ package io.workflowai.integration;
 
 import io.restassured.http.ContentType;
 import io.workflowai.adapter.in.rest.dto.ConversationResponse;
+import io.workflowai.adapter.in.rest.dto.ErrorPayload;
 import io.workflowai.adapter.in.rest.dto.EventType;
 import io.workflowai.application.execution.ChatProviderRegistry;
 import io.workflowai.application.port.out.ChatCompletionRequest;
@@ -41,6 +42,9 @@ class ChatEndpointTest extends IntegrationBase {
     private static final String GREET_JSON = """
             {"decisionMode":"GREET","detectedTopics":[],"extractedIntent":"Hello","clarificationQuestion":null,"reason":"Greeting"}
             """;
+    private static final String EXECUTE_JSON = """
+            {"decisionMode":"EXECUTE","detectedTopics":[],"extractedIntent":"Deploy the latest release","clarificationQuestion":null,"reason":"User wants to execute a task"}
+            """;
 
     @Autowired
     private JsonMapper jsonMapper;
@@ -74,6 +78,29 @@ class ChatEndpointTest extends IntegrationBase {
 
         assertThat(userMessages).isEqualTo(1);
         assertThat(agentMessages).isEqualTo(1);
+    }
+
+    @Test
+    void chat_workflowExecutionFailure_sendsErrorEventAndCompletesStream() {
+        ChatProvider ollama = mock();
+        when(ollama.getId()).thenReturn(Ollama);
+        when(ollama.call(any(ChatCompletionRequest.class))).thenReturn(EXECUTE_JSON);
+        when(ollama.stream(any(ChatCompletionRequest.class), any(Consumer.class)))
+                .thenThrow(new RuntimeException("Simulated provider outage"));
+        when(chatProviderRegistry.get(Ollama)).thenReturn(ollama);
+        when(chatProviderRegistry.supportedChatProviders()).thenReturn(Map.of(Ollama, Set.of()));
+
+        String rawStream = given()
+                .contentType(ContentType.JSON)
+                .body("{\"message\":\"Deploy the latest release\"}")
+                .when()
+                .post("/api/agents/{agentId}/conversations/{id}/chat", AGENT_ID, "NEW_CONVERSATION")
+                .then()
+                .extract()
+                .asString();
+
+        ErrorPayload error = jsonMapper.readValue(extractEventData(EventType.ERROR, rawStream), ErrorPayload.class);
+        assertThat(error.message()).contains("Simulated provider outage");
     }
 
     @Test

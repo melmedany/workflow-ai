@@ -145,7 +145,7 @@ public class AgentController {
         .exceptionally(ex -> {
             log.warn("Chat execution failed for conversation [{}]: {}", conversationId, ex.getMessage());
             sendError(emitter, ex.getMessage());
-            emitter.completeWithError(ex);
+            emitter.complete();
             return null;
         })
         .whenComplete((ignored, _) -> executorService.shutdown());
