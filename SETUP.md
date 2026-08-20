@@ -196,5 +196,7 @@ gradlew.bat test
   the remaining stages without Spring or a database. `AgentDefinitionServiceTest` under `application/agent` covers
   validation errors on save/update the same way.
 - `ArchitectureTest` runs in the same suite; a boundary violation fails the build like any other test.
+- Behavioural specs for the pieces these tests cover live under [`/spec`](spec) in the project root; see the
+  README's [Specs section](README.md#specs) for the index. Tests are written to enforce those specs.
 - Test fixtures are per-test SQL files in `src/test/resources/io/workflowai/integration`, applied by `@Sql` and named
   after their test class.

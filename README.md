@@ -22,12 +22,31 @@ See [Known Limitations & Chosen Scope](#known-limitations--chosen-scope)
 
 ### How this was built
 
-The project was built with the help of Claude Code through prompt-driven iteration, with a minimal upfront spec. A review
-pass over the whole codebase produced the first spec-like artifact, and after that point development moved to scoped,
-ordered implementation prompts. Earlier code therefore reflects unplanned iteration and later code reflects spec-first
-prompts. This is a process note, not a claim about quality.
+The project was built with the help of Claude Code through prompt-driven iteration, with a minimal upfront spec. A
+review pass over the whole codebase produced the first spec-like artifact, and after that point development moved to
+scoped, ordered implementation prompts. Earlier code therefore reflects unplanned iteration and later code reflects
+spec-first prompts. This is a process note, not a claim about quality.
 
 See [SETUP.md](SETUP.md) for prerequisites, installation, running the application, and running the tests.
+
+---
+
+## Specs
+
+Minimal behavioural specs for individual components live under [`/spec`](spec): purpose, inputs/outputs, acceptance
+criteria, failure modes, edge cases, and non-goals per piece. This README keeps the big picture (architecture, the
+graph, the flows, the API). The specs are the source of truth for exact behaviour, and the stage table below links each
+stage to its file.
+
+| Area                | Specs                                                                                  | Status                                  |
+|---------------------|----------------------------------------------------------------------------------------|-----------------------------------------|
+| Guardrails          | [`spec/guardrails`](spec/guardrails)                                                   | done                                    |
+| Stages              | [`spec/stages`](spec/stages), one file per `StageId` (see the stage table below)       | done                                    |
+| Workflow graph      | [`spec/workflow/StandardWorkflowGraph.md`](spec/workflow/StandardWorkflowGraph.md)     | done                                    |
+| Task scheduling     | [`spec/task`](spec/task)                                                               | done                                    |
+| Agent definitions   | [`spec/agent/AgentDefinitionService.md`](spec/agent/AgentDefinitionService.md)         | done                                    |
+| SSE contract        | [`spec/sse`](spec/sse)                                                                 | done                                    |
+| NotificationChannel | [`spec/notification/NotificationChannel.md`](spec/notification/NotificationChannel.md) | done (contract only, no implementation) |
 
 ---
 
@@ -37,7 +56,7 @@ See [SETUP.md](SETUP.md) for prerequisites, installation, running the applicatio
 runs, its chat properties (provider, model, temperature, agent prompt, memory on/off), and its workflow policy. It is
 the unit an admin edits and the unit a chat request is addressed to.
 
-**Workflow**: a named, fixed graph of stages. `WorkflowId` enumerates the variants; `STANDARD` is the only one today.
+**Workflow**: a named, fixed graph of stages. `WorkflowId` enumerates the variants. `STANDARD` is the only one today.
 `Workflow` is the runnable instance of a variant bound to one agent's properties.
 
 **Workflow policy**: the per-agent constraints applied inside the workflow: the list of supported capabilities used for
@@ -49,26 +68,30 @@ only).
 
 The stages that exist today:
 
-| Stage                    | Graph node         | User facing | Definition                                                                              |
-|--------------------------|--------------------|-------------|-----------------------------------------------------------------------------------------|
-| `PERSIST_USER_MESSAGE`   | yes                | no          | Stores the incoming message on the conversation.                                        |
-| `LOAD_MEMORY`            | yes                | no          | Reads the conversation's compact memory blob when memory is enabled.                    |
-| `CLASSIFICATION`         | yes                | yes         | Produces the routing decision; also extracts schedule details for `/schedule` requests. |
-| `EXECUTE_WORKFLOW`       | yes                | yes         | Runs the agent's own model against the request.                                         |
-| `CREATE_TASK`            | yes                | yes         | Creates or updates the scheduled task for the conversation.                             |
-| `GENERATE_CLARIFICATION` | yes                | yes         | Produces a single clarifying question.                                                  |
-| `GENERATE_GREETING`      | yes                | yes         | Produces a short greeting stating what the agent can help with.                         |
-| `GENERATE_REDIRECT`      | yes                | yes         | Points a mixed-scope request at its in-scope part.                                      |
-| `GENERATE_REFUSAL`       | yes                | yes         | Declines an out-of-scope or unsafe request.                                             |
-| `SELF_VERIFICATION`      | yes                | yes         | Checks the generated response against the response contract and retries once.           |
-| `PERSIST_RESPONSE`       | no (shared helper) | no          | Saves the final response and emits it, called by every stage that produces one.         |
-| `COMPACT_MEMORY`         | yes                | no          | Rewrites the conversation's memory blob after the visible turn.                         |
-| `COMPLETE`               | yes                | yes         | Closes the turn and hands the result to notification channels.                          |
-| `GUARDRAIL_INPUT`        | no                 | no          | Declared with a label but never emitted; guardrailing happens inside the provider call. |
-| `GUARDRAIL_OUTPUT`       | no                 | no          | Declared with a label but never emitted; guardrailing happens inside the provider call. |
+| Stage                    | Graph node         | User facing | Definition                                                                              | Spec                                              |
+|--------------------------|--------------------|-------------|-----------------------------------------------------------------------------------------|---------------------------------------------------|
+| `PERSIST_USER_MESSAGE`   | yes                | no          | Stores the incoming message on the conversation.                                        | [spec](spec/stages/PersistUserMessageStage.md)    |
+| `LOAD_MEMORY`            | yes                | no          | Reads the conversation's compact memory blob when memory is enabled.                    | [spec](spec/stages/LoadMemoryStage.md)            |
+| `CLASSIFICATION`         | yes                | yes         | Produces the routing decision. also extracts schedule details for `/schedule` requests. | [spec](spec/stages/ClassificationStage.md)        |
+| `EXECUTE_WORKFLOW`       | yes                | yes         | Runs the agent's own model against the request.                                         | [spec](spec/stages/ExecuteWorkflowStage.md)       |
+| `CREATE_TASK`            | yes                | yes         | Creates or updates the scheduled task for the conversation.                             | [spec](spec/stages/CreateTaskStage.md)            |
+| `GENERATE_CLARIFICATION` | yes                | yes         | Produces a single clarifying question.                                                  | [spec](spec/stages/GenerateClarificationStage.md) |
+| `GENERATE_GREETING`      | yes                | yes         | Produces a short greeting stating what the agent can help with.                         | [spec](spec/stages/GenerateGreetingStage.md)      |
+| `GENERATE_REDIRECT`      | yes                | yes         | Points a mixed-scope request at its in-scope part.                                      | [spec](spec/stages/GenerateRedirectStage.md)      |
+| `GENERATE_REFUSAL`       | yes                | yes         | Declines an out-of-scope or unsafe request.                                             | [spec](spec/stages/GenerateRefusalStage.md)       |
+| `SELF_VERIFICATION`      | yes                | yes         | Checks the generated response against the response contract and retries once.           | [spec](spec/stages/SelfVerificationStage.md)      |
+| `PERSIST_RESPONSE`       | no (shared helper) | no          | Saves the final response and emits it, called by every stage that produces one.         | Shared helper, no dedicated spec                  |
+| `COMPACT_MEMORY`         | yes                | no          | Rewrites the conversation's memory blob after the visible turn.                         | [spec](spec/stages/CompactMemoryStage.md)         |
+| `COMPLETE`               | yes                | yes         | Closes the turn and hands the result to notification channels.                          | [spec](spec/stages/CompleteStage.md)              |
+| `GUARDRAIL_INPUT`        | no                 | no          | Declared with a label but never emitted. guardrailing happens inside the provider call. | [guardrails specs](spec/guardrails)               |
+| `GUARDRAIL_OUTPUT`       | no                 | no          | Declared with a label but never emitted. guardrailing happens inside the provider call. | [guardrails specs](spec/guardrails)               |
+
+`GENERATE_GREETING`, `GENERATE_REDIRECT`, and `GENERATE_REFUSAL` all delegate generation to the shared
+`DecisionResponseGenerator` helper. see its [spec](spec/stages/DecisionResponseGenerator.md) for the common
+fallback-on-failure contract.
 
 **DecisionMode**: the routing verdict a request is reduced to: `GREET`, `EXECUTE`, `EXECUTE_SCHEDULE`, `CLARIFY`,
-`REDIRECT`, `REFUSE`. The classifier only ever returns the other five; `EXECUTE_SCHEDULE` is derived in the graph when
+`REDIRECT`, `REFUSE`. The classifier only ever returns the other five. `EXECUTE_SCHEDULE` is derived in the graph when
 an `EXECUTE` decision coincides with a scheduling request.
 
 **Response contract**: what a valid generated response must look like: free text or JSON, an optional minimum length,
@@ -194,12 +217,12 @@ flowchart TB
     ADAPTER_IN -. " forbidden, both directions " .-> ADAPTER_OUT
 ```
 
-Domain must not depend on application, on either adapter package, on Spring, or on LangChain4j, and outside
+Domain must not depend on the application, on either adapter package, on Spring, or on LangChain4j, and outside
 `domain.workflow`, not on LangGraph4j either. `domain.workflow` is the one place allowed to import LangGraph4j. The
 application layer (including `application.port`) must not depend on either adapter package or on either AI framework.
 LangChain4j may only be imported from `adapter.out.chat`, every other package, including
 `bootstrap`, is checked and forbidden. And `adapter.in` and `adapter.out` must never depend on each other. Nothing here
-is enforced beyond these nine assertions; anything else the packages happen to do today is convention, not a tested
+is enforced beyond these nine assertions. anything else the packages happen to do today is convention, not a tested
 rule.
 
 The concrete package and file layout are in [SETUP.md](SETUP.md).
@@ -236,13 +259,12 @@ flowchart TD
 
 Three details of the graph are worth stating because the diagram alone can mislead:
 
-- There is no separate schedule-extraction node. When a message starts with `/schedule`, the prefix is stripped, a
-  `schedulingRequested` flag is set on the state, and `CLASSIFICATION` runs with schedule-extraction rules appended to
-  its prompt, returning the schedule type and duration alongside the decision.
+- There is no separate schedule-extraction node. `CLASSIFICATION` extracts the schedule type and duration alongside the
+  decision when `schedulingRequested` is set. See its [spec](spec/stages/ClassificationStage.md).
 - `PERSIST_RESPONSE` is not a node. It is a helper that every terminal stage calls, so the response is saved before any
   of it is emitted.
-- `CREATE_TASK` can re-route. It re-enters `GENERATE_CLARIFICATION` or `GENERATE_REFUSAL` when the extracted schedule
-  cannot be used, which is why those two nodes have inbound edges from two places.
+- `CREATE_TASK` can re-route into `GENERATE_CLARIFICATION` or `GENERATE_REFUSAL` when the extracted schedule cannot be
+  used. See the [workflow graph spec](spec/workflow/StandardWorkflowGraph.md) for the full routing table.
 
 Three frameworks carry most of the weight, and each one is confined to a single concern. LangChain4j provides the
 per-provider chat and streaming chat models and the input/output guardrail interfaces, which is why guard railing
@@ -299,7 +321,7 @@ sequenceDiagram
     end
     Graph ->> DB: PERSIST_RESPONSE saves the final text
     Graph -->> Client: TOKEN chunks, then RESPONSE_COMPLETED
-    Graph ->> LLM: COMPACT_MEMORY on a virtual thread
+    Graph ->> LLM: COMPACT_MEMORY
     Graph -->> Client: CONVERSATION_COMPLETED
     LLM -->> Graph: Compacted memory
     Graph ->> DB: Replace the memory blob
@@ -308,13 +330,14 @@ sequenceDiagram
 Details the diagram compresses:
 
 - Use `NEW_CONVERSATION` as the conversation path value to create the conversation on the first request.
-- `GENERATE_CLARIFICATION` calls a model only when the classifier did not already supply a clarification question.
-- If the input guardrail blocks the request inside `EXECUTE_WORKFLOW`, the stage short-circuits to the agent's fallback
-  message instead of retrying, because a retry would hit the same block.
-- `SELF_VERIFICATION` retries at most once. A response that is still invalid afterwards is persisted and returned
-  anyway, with a `STAGE` event carrying `FAILED`.
-- Memory compaction runs on a virtual thread and never blocks the turn. It is skipped when the agent has memory disabled
-  or produced an empty response.
+- `GENERATE_CLARIFICATION` prefers the classifier's own question over generating one. see its
+  [spec](spec/stages/GenerateClarificationStage.md) for the exact fallback rule.
+- `EXECUTE_WORKFLOW` treats a guardrail-blocked input as already-final rather than retrying. see its
+  [spec](spec/stages/ExecuteWorkflowStage.md).
+- `SELF_VERIFICATION` retries at most once and always accepts the retry's result as final. see its
+  [spec](spec/stages/SelfVerificationStage.md) for the exact `STAGE`/`FAILED` signalling.
+- Memory compaction runs as the last stage, only when memory is enabled. See
+  [`CompactMemoryStage`](spec/stages/CompactMemoryStage.md) for when it's skipped.
 
 ### Schedule creation
 
@@ -358,13 +381,12 @@ sequenceDiagram
     Graph ->> DB: COMPACT_MEMORY, then COMPLETE
 ```
 
-The capability check happens here, once, and not again when the task fires, the classification rules say so explicitly,
-because the stored instruction will be re-run without further review. The recursion check is applied twice: the
-classifier is told to refuse an instruction that schedules something, and `CREATE_TASK` independently re-checks the
-extracted instruction and refuses a blank one or one that still reads as a scheduling request.
+The capability check happens once, at classification time, since the stored instruction runs again later without further
+review. see [`CreateTaskStage`](spec/stages/CreateTaskStage.md) for the exact refusal/clarify rules and
+[`StandardWorkflowGraph`](spec/workflow/StandardWorkflowGraph.md) for how `CREATE_TASK` re-routes.
 
-Repeating the same `/schedule` request does not accumulate tasks. The instruction is hashed into an intent key, and a
-matching key within the same conversation updates the existing task and reschedules it.
+Repeating the same `/schedule` request does not accumulate tasks. See [`TaskService`](spec/task/TaskService.md)
+for the dedup-by-intent-key rule.
 
 ### Scheduled execution
 
@@ -397,14 +419,15 @@ sequenceDiagram
     end
 ```
 
-Two consequences of bypassing classification are worth being explicit about. The run's capability scope is not
-re-checked at fire time; the only gate is that the task is still `ACTIVE`, and scope was settled when the task was
-created. And `CREATE_TASK` is unreachable on this path, so a scheduled run cannot schedule anything, belt and braces,
-since `CREATE_TASK` also refuses system-triggered runs if it is ever reached another way. Guardrails still apply because
-they live in the provider call: blocked input makes `EXECUTE_WORKFLOW` return the agent's fallback message.
+Bypassing classification has two consequences worth being explicit about: capability scope is only checked once, at
+creation time, and a scheduled run can never create another task, belt and braces, since `CREATE_TASK` also refuses
+system-triggered runs if it's ever reached another way. See
+[`ScheduledAgentTaskRunner`](spec/task/ScheduledAgentTaskRunner.md) and
+[`CreateTaskStage`](spec/stages/CreateTaskStage.md). Guardrails still apply because they live in the provider call.
 
 The result is visible in the conversation the task belongs to. `NotificationChannel` exists as a port for pushing it
-somewhere else, but has no implementation yet.
+somewhere else but has no implementation yet. see its [spec](spec/notification/NotificationChannel.md) for the contract
+a future implementer must satisfy.
 
 ### Admin
 
@@ -426,8 +449,9 @@ Two things the admin UI does not do. Per-stage model tiering is not editable the
 here. `chat.html` has a **Tasks** tab listing the current conversation's tasks with their schedule, status, next run,
 and last run, and offering pause, resume, and cancel.
 
-Agents are cached in memory once built. Saving or updating a definition through the admin API explicitly reloads that
-one agent from its stored definition, so the edit takes effect on the very next request without an application restart.
+Agents are cached in memory once built, and saving/updating through the admin API reloads the affected agent so the edit
+takes effect immediately. see [`AgentDefinitionService`](spec/agent/AgentDefinitionService.md) for the exact
+validate-then-persist-then-reload contract.
 
 ### Adapters
 
@@ -440,7 +464,7 @@ the call and the output guardrail to the result, falls back to the provider's de
 not supported, and turns LangChain4j's streaming callbacks into a synchronous call that returns the full text.
 `AbstractOpenAiProvider` adds a complete implementation for any OpenAI-compatible endpoint: `OpenAiProvider`
 and `BonzaiProvider` both build on it, and Bonzai adds nothing beyond its own configuration record.
-`OllamaProvider` and `AnthropicProvider` extend `AbstractChatProvider` directly because their model builders differ;
+`OllamaProvider` and `AnthropicProvider` extend `AbstractChatProvider` directly because their model builders differ.
 `OllamaProvider` additionally checks `/api/tags` and fails with instructions to pull the missing model.
 
 To add one: add a value to `ChatProviderId`, add a `@Component` extending `AbstractOpenAiProvider` for an
@@ -449,7 +473,7 @@ base URL, key, default model, default temperature, and supported models, and add
 `application.yml`. Note that the existing providers are split between `langchain4j.*` and, for Bonzai,
 `workflow-ai.chat-providers.bonzai`, so follow whichever prefix your record declares. `ChatProviderRegistry` collects
 every
-`ChatProvider` bean by id, so nothing needs registering by hand; the new provider immediately appears in the admin
+`ChatProvider` bean by id, so nothing needs registering by hand. the new provider immediately appears in the admin
 dropdowns and can be selected per agent and per stage.
 
 ---
@@ -528,22 +552,11 @@ DELETE /api/admin/agents/{agentId}
 
 ### SSE events
 
-Event names are the `EventType` constants, upper snake case:
-
-| Event                    | Data                                                                               | Sent when                                                    |
-|--------------------------|------------------------------------------------------------------------------------|--------------------------------------------------------------|
-| `CONVERSATION_CREATED`   | conversation JSON: `id`, `agentId`, `title`, `createdAt`, `updatedAt`              | Only when the path value was `NEW_CONVERSATION`.             |
-| `STAGE`                  | `{"stageId","status","label","reason"}`, status `STARTED`, `COMPLETED` or `FAILED` | A stage starts, finishes or fails (user-facing stages only). |
-| `DECISION`               | `{"mode","reason"}`                                                                | Classification produced a routing decision.                  |
-| `TOKEN`                  | `text/plain` fragment                                                              | Each chunk of the final response.                            |
-| `RESPONSE_COMPLETED`     | `{}`                                                                               | The response text is complete.                               |
-| `CONVERSATION_COMPLETED` | `{}`                                                                               | The visible turn is finished.                                |
-| `MEMORY_UPDATED`         | `{}`                                                                               | Memory compaction completed.                                 |
-| `ERROR`                  | `{"message"}`                                                                      | The turn failed.                                             |
-
-Infrastructure stages (`PERSIST_USER_MESSAGE`, `LOAD_MEMORY`, `PERSIST_RESPONSE`, `COMPACT_MEMORY`) are logged
-server-side but never streamed. `TOKEN` events are whitespace-split chunks of a response that is already complete and
-already persisted, not model-paced output.
+Event names are the `EventType` constants, upper snake case: `CONVERSATION_CREATED`, `STAGE`, `DECISION`, `TOKEN`,
+`RESPONSE_COMPLETED`, `CONVERSATION_COMPLETED`, `MEMORY_UPDATED`, `ERROR`. Only user-facing stages produce `STAGE`
+events. The full mapping, exact payload shape per event, and which events are actually reachable today, is in the
+[EventType contract spec](spec/sse/EventTypeContract.md). how each event is built and delivered per run is in the
+[`SSEWorkflowEventStreamer` spec](spec/sse/SSEWorkflowEventStreamer.md).
 
 ---
 
@@ -554,18 +567,19 @@ already persisted, not model-paced output.
 - **Responses are not streamed as they are generated.** `EXECUTE_WORKFLOW` and the greeting, redirect, and refusal
   stages pass a discarding token consumer to the provider and buffer the whole response. `EXECUTE_WORKFLOW` has to,
   because `SELF_VERIFICATION` may reject the draft. Clarification does not stream at all. `PERSIST_RESPONSE` then
-  re-emits the finished text as `TOKEN` events. The SSE contract is streaming; the experience is a burst.
+  re-emits the finished text as `TOKEN` events. The SSE contract is streaming. the experience is a burst.
 - **Guardrail stages are never emitted.** `GUARDRAIL_INPUT` and `GUARDRAIL_OUTPUT` have ids and UI labels, but
-  guardrailing happens inside the provider call, so clients never see a guardrail step.
+  guard-railing happens inside the provider call, so clients never see a guardrail step. see the
+  [guardrails specs](spec/guardrails) and the [EventType contract](spec/sse/EventTypeContract.md).
 - **Notifications go nowhere.** `NotificationChannel` has no implementation, so `COMPLETE`'s fan-out is a no-op and a
-  scheduled result is only visible in its conversation.
-- **Schedule validation leans entirely on the classifier prompt.** `CREATE_TASK` routes to `CLARIFY` on
-  `InvalidScheduleException` and to `REFUSE` on `ScheduleTooFrequentException`. A malformed duration expression or
-  `runOnceAt` value that gets past the model fails the run instead of being clarified.
-- **Memory compaction can race the next turn.** Compaction runs on a virtual thread after the response is emitted, so a
-  fast follow-up message may load the previous memory blob.
-- **Self-verification gives up after one retry.** A response that is still invalid is persisted and returned as best
-  effort.
+  scheduled result is only visible in its conversation. see its [spec](spec/notification/NotificationChannel.md).
+- **Schedule validation leans entirely on the classifier prompt.** `CREATE_TASK` catches malformed schedule values
+  (`DateTimeParseException`/`IllegalArgumentException`/`InvalidScheduleException`) and routes them to `CLARIFY`, and a
+  too-frequent schedule to `REFUSE` on `ScheduleTooFrequentException`. A `scheduleType` or `startDateTime` missing
+  entirely from the classifier's decision is caught the same way today and asks for clarification. see [
+  `CreateTaskStage`](spec/stages/CreateTaskStage.md) for the intended behaviour.
+- **Self-verification gives up after one retry.** A response that is still invalid is persisted and returned as the best
+  effort. see [`SelfVerificationStage`](spec/stages/SelfVerificationStage.md).
 - **The agent cache is only invalidated by the admin API.** `AgentService` keeps built agents in an in-memory map and
   only rebuilds one when `saveDefinition`/`updateDefinition` calls `reload`. A definition changed by any other route (a
   direct database edit, for instance) would not be picked up until the process restarts.
@@ -582,10 +596,10 @@ These are decisions, not a backlog.
   has no use for it.
 - **Hosting local models.** Ollama is consumed as an already-running endpoint through a provider adapter, which checks
   that a model is present and tells you to `ollama pull` it yourself. Managing local inference servers. Ollama, vLLM, or
-  anything else, as pluggable provider connections owned by this project is not something it will do; new engines arrive
+  anything else, as pluggable provider connections owned by this project is not something it will do. new engines arrive
   as adapters against endpoints someone else runs.
 - **Production deployment.** This project is not intended to be deployed. If that ever changed, each of the following
-  would need evaluating first, and none of them is a commitment: authentication and authorization on both API surfaces;
+  would need evaluating first, and none of them is a commitment: authentication and authorization on both API surfaces.
   secrets management, since provider keys and the datasource password are plain values in
-  `application.yml` today; observability and tracing across stages and model calls; rate limits and cost controls;
-  backups and a retention policy for conversations, memory and run history; and multi-tenant data isolation.
+  `application.yml` today. observability and tracing across stages and model calls. rate limits and cost controls.
+  backups and a retention policy for conversations, memory and run history. and multi-tenant data isolation.
