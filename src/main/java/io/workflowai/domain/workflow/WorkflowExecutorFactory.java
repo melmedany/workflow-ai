@@ -3,6 +3,7 @@ package io.workflowai.domain.workflow;
 import io.workflowai.domain.exceptions.WorkflowBuildException;
 import io.workflowai.domain.exceptions.WorkflowStageException;
 import org.bsc.langgraph4j.CompiledGraph;
+import org.bsc.langgraph4j.GraphStateException;
 import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncEdgeAction;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
@@ -91,7 +92,7 @@ public class WorkflowExecutorFactory {
             wireStandardWorkflowNodes(stateGraph);
 
             return stateGraph.compile();
-        } catch (Exception ex) {
+        } catch (GraphStateException ex) {
             throw new WorkflowBuildException("Failed to build workflow graph for workflow [%s]".formatted(WorkflowId.STANDARD), ex);
         }
     }
@@ -165,7 +166,7 @@ public class WorkflowExecutorFactory {
             graph.addEdge(GENERATE_REFUSAL.name(), COMPACT_MEMORY.name());
             graph.addEdge(COMPACT_MEMORY.name(), COMPLETE.name());
             graph.addEdge(COMPLETE.name(), StateGraph.END);
-        } catch (Exception ex) {
+        } catch (GraphStateException ex) {
             throw new WorkflowBuildException("Failed to build workflow graph", ex);
         }
     }
@@ -176,7 +177,7 @@ public class WorkflowExecutorFactory {
                 return stage.execute(state);
             } catch (WorkflowStageException ex) {
                 throw ex;
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 log.warn("Stage [{}] failed: {}", stage.stageId(), ex.getMessage());
                 throw new WorkflowStageException(state.agentProperties().id(), stage.stageId(), ex.getMessage(), ex);
             }

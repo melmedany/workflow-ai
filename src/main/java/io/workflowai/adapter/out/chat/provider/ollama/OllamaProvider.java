@@ -90,39 +90,43 @@ public class OllamaProvider extends AbstractChatProvider {
         log.debug("Calling Ollama model [{}]", model);
         try {
             return extractText(chatModel.chat(messages));
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             throw new ChatProviderCallException(getId(), "Sync call failed for model [%s]".formatted(model), ex);
         }
     }
 
     @Override
     protected ChatModel buildChatModel(String model, double temperature) {
-        if (chatModelMap.containsKey(model)) return chatModelMap.get(model);
+        ChatModel chatModel = chatModelMap.get(model);
 
-        ChatModel chatModel = OllamaChatModel.builder()
-                .baseUrl(properties.baseUrl())
-                .modelName(model)
-                .temperature(temperature)
-                .timeout(properties.timeout())
-                .build();
+        if (chatModel == null) {
+            chatModel = OllamaChatModel.builder()
+                    .baseUrl(properties.baseUrl())
+                    .modelName(model)
+                    .temperature(temperature)
+                    .timeout(properties.timeout())
+                    .build();
 
-        chatModelMap.put(model, chatModel);
+            chatModelMap.put(model, chatModel);
+        }
 
         return chatModel;
     }
 
     @Override
     protected StreamingChatModel buildStreamingModel(String model, double temperature) {
-        if (streamingChatModelMap.containsKey(model)) return streamingChatModelMap.get(model);
+        StreamingChatModel streamingChatModel = streamingChatModelMap.get(model);
 
-        StreamingChatModel streamingChatModel = OllamaStreamingChatModel.builder()
-                .baseUrl(properties.baseUrl())
-                .modelName(model)
-                .temperature(temperature)
-                .timeout(properties.timeout())
-                .build();
+        if (streamingChatModel == null) {
+            streamingChatModel = OllamaStreamingChatModel.builder()
+                    .baseUrl(properties.baseUrl())
+                    .modelName(model)
+                    .temperature(temperature)
+                    .timeout(properties.timeout())
+                    .build();
 
-        streamingChatModelMap.put(model, streamingChatModel);
+            streamingChatModelMap.put(model, streamingChatModel);
+        }
 
         return streamingChatModel;
     }
@@ -154,7 +158,7 @@ public class OllamaProvider extends AbstractChatProvider {
             }
 
             return modelAvailable;
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             throw new ChatProviderCallException(getId(), "Failed to pull model [%s]".formatted(model), ex);
         }
     }

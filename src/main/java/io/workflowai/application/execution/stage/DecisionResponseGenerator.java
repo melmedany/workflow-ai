@@ -32,7 +32,7 @@ public class DecisionResponseGenerator {
             ChatCompletionRequest request = new ChatCompletionRequest(stageProperties.model(), stageProperties.temperature(), state.systemPrompt(), prompt, state.memoryContext());
             return chatProviderRegistry.get(stageProperties.chatProviderId()).stream(request, _ -> {
             });
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             log.warn("[{}] Decision response generation failed, using fallback: {}", state.agentProperties().id(), ex.getMessage());
             return state.agentProperties().workflowPolicy().failedToProcessMessage();
         }

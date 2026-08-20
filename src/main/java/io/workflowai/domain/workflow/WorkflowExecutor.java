@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -27,18 +28,23 @@ public class WorkflowExecutor {
     }
 
     public WorkflowExecutionResult execute(Map<String, Object> initialState) {
-        CompletableFuture<Void> future = null;
+        ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> graph.invoke(initialState), executorService);
 
-        try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
-            future = CompletableFuture.runAsync(() -> graph.invoke(initialState), executorService);
+        try {
             future.get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             return WorkflowExecutionResult.completed();
         } catch (TimeoutException ex) {
             future.cancel(true);
             return WorkflowExecutionResult.timedOut("Workflow execution timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds");
-        } catch (Exception ex) {
-            log.warn("Workflow execution failed: {}", ex.getMessage());
+        } catch (InterruptedException ex) {
+            future.cancel(true);
+            return WorkflowExecutionResult.failed("Workflow execution interrupted", ex);
+        } catch (ExecutionException ex) {
+            log.warn("Workflow execution failed: {}", ex.getMessage(), ex);
             return WorkflowExecutionResult.failed("Unexpected workflow failure: " + ex.getMessage(), ex);
+        } finally {
+            executorService.shutdownNow();
         }
     }
 

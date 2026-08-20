@@ -70,39 +70,43 @@ public class AnthropicProvider extends AbstractChatProvider {
         log.debug("Calling Anthropic model [{}]", model);
         try {
             return extractText(chatModel.chat(messages));
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             throw new ChatProviderCallException(getId(), "Sync call failed for model [%s]".formatted(model), ex);
         }
     }
 
     @Override
     protected ChatModel buildChatModel(String model, double temperature) {
-        if (chatModelMap.containsKey(model)) return chatModelMap.get(model);
+        ChatModel chatModel = chatModelMap.get(model);
 
-        ChatModel chatModel = AnthropicChatModel.builder()
-                .baseUrl(properties.baseUrl)
-                .apiKey(properties.apiKey())
-                .modelName(model)
-                .temperature(temperature)
-                .build();
+        if (chatModel == null) {
+            chatModel = AnthropicChatModel.builder()
+                    .baseUrl(properties.baseUrl)
+                    .apiKey(properties.apiKey())
+                    .modelName(model)
+                    .temperature(temperature)
+                    .build();
 
-        chatModelMap.put(model, chatModel);
+            chatModelMap.put(model, chatModel);
+        }
 
         return chatModel;
     }
 
     @Override
     protected StreamingChatModel buildStreamingModel(String model, double temperature) {
-        if (streamingChatModelMap.containsKey(model)) return streamingChatModelMap.get(model);
+        StreamingChatModel streamingChatModel = streamingChatModelMap.get(model);
 
-        StreamingChatModel streamingChatModel = AnthropicStreamingChatModel.builder()
-                .baseUrl(properties.baseUrl)
-                .apiKey(properties.apiKey())
-                .modelName(model)
-                .temperature(temperature)
-                .build();
+        if (streamingChatModel == null) {
+            streamingChatModel = AnthropicStreamingChatModel.builder()
+                    .baseUrl(properties.baseUrl)
+                    .apiKey(properties.apiKey())
+                    .modelName(model)
+                    .temperature(temperature)
+                    .build();
 
-        streamingChatModelMap.put(model, streamingChatModel);
+            streamingChatModelMap.put(model, streamingChatModel);
+        }
 
         return streamingChatModel;
     }

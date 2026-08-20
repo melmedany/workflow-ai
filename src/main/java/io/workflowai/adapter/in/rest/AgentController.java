@@ -32,6 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -130,23 +131,24 @@ public class AgentController {
             emitter.completeWithError(ex);
         });
 
-        try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
-            executorService.submit(() -> {
-                if (newConversation) {
-                    sendJson(emitter, CONVERSATION_CREATED, conversation);
-                }
-
-                agentService.trigger(
-                        AgentRequest.userMessage(agentId, conversationId, request.message()),
-                        event -> handleEvent(emitter, event)
-                );
-                emitter.complete();
-            });
-        } catch (Exception ex) {
+        ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+        CompletableFuture.runAsync(() -> {
+            if (newConversation) {
+                sendJson(emitter, CONVERSATION_CREATED, conversation);
+            }
+            agentService.trigger(
+                    AgentRequest.userMessage(agentId, conversationId, request.message()),
+                    event -> handleEvent(emitter, event)
+            );
+            emitter.complete();
+        }, executorService)
+        .exceptionally(ex -> {
             log.warn("Chat execution failed for conversation [{}]: {}", conversationId, ex.getMessage());
             sendError(emitter, ex.getMessage());
             emitter.completeWithError(ex);
-        }
+            return null;
+        })
+        .whenComplete((ignored, _) -> executorService.shutdown());
 
         return ResponseEntity.ok(emitter);
     }
@@ -192,7 +194,7 @@ public class AgentController {
         } catch (IOException ex) {
             log.warn("Failed to send SSE event [{}]: {}", eventType, ex.getMessage());
             throw new RuntimeException("SSE write failed for event: " + eventType, ex);
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             log.warn("Failed to serialize SSE event [{}]: {}", eventType, ex.getMessage());
         }
     }

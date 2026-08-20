@@ -6,9 +6,9 @@ import dev.langchain4j.guardrail.OutputGuardrail;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import io.workflowai.adapter.out.chat.provider.AbstractOpenAiProvider;
-import io.workflowai.domain.exceptions.ChatProviderCallException;
-import io.workflowai.domain.agent.ChatProviderId;
 import io.workflowai.application.port.out.ChatCompletionRequest;
+import io.workflowai.domain.agent.ChatProviderId;
+import io.workflowai.domain.exceptions.ChatProviderCallException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -68,7 +68,7 @@ public class OpenAiProvider extends AbstractOpenAiProvider {
         log.debug("Calling {} model [{}]", getId(), resolvedModel);
         try {
             return extractText(chatModel.chat(messages));
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             throw new ChatProviderCallException(getId(), "Sync call failed for model [%s]".formatted(resolvedModel), ex);
         }
     }

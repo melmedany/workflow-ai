@@ -3,7 +3,6 @@ package io.workflowai.adapter.in.rest;
 import io.workflowai.domain.exceptions.AgentNotFoundException;
 import io.workflowai.domain.exceptions.AgentValidationException;
 import io.workflowai.domain.exceptions.ChatProviderException;
-import io.workflowai.domain.exceptions.ClassificationException;
 import io.workflowai.domain.exceptions.ConversationNotFoundException;
 import io.workflowai.domain.exceptions.TaskNotFoundException;
 import io.workflowai.domain.exceptions.WorkflowExecutionException;
@@ -55,13 +54,6 @@ public class GlobalExceptionHandler {
             ChatProviderException ex, WebRequest request) {
         log.warn("Chat provider error: {}", ex.getMessage());
         return error(HttpStatus.BAD_GATEWAY, "Chat provider error: " + ex.getMessage(), request);
-    }
-
-    @ExceptionHandler(ClassificationException.class)
-    public ResponseEntity<Map<String, Object>> handleClassification(
-            ClassificationException ex, WebRequest request) {
-        log.warn("Classification error for agent [{}]: {}", ex.getAgent(), ex.getMessage());
-        return error(HttpStatus.UNPROCESSABLE_CONTENT, "Could not classify request: " + ex.getMessage(), request);
     }
 
     @ExceptionHandler(WorkflowExecutionException.class)

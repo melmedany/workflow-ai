@@ -15,8 +15,7 @@ extract the schedule details (type, duration, instruction) as part of that same 
 
 ## Outputs / constraints / postconditions / invariants
 
-- Always returns a `Map` containing `WorkflowState.KEY_ROUTING_DECISION` bound to a non-null `RoutingDecision`, or
-  propagates a `ClassificationException` (never returns a partially formed decision).
+- Always returns a `Map` containing `WorkflowState.KEY_ROUTING_DECISION` bound to a non-null `RoutingDecision`.
 - `decisionMode` in the returned decision is always one of `GREET`, `EXECUTE`, `CLARIFY`, `REDIRECT`, `REFUSE`. This
   stage never produces `EXECUTE_SCHEDULE` itself. That value is derived later in the workflow graph
   (`WorkflowExecutorFactory`) from an `EXECUTE` decision plus `schedulingRequested()`.
@@ -38,19 +37,18 @@ extract the schedule details (type, duration, instruction) as part of that same 
   `KEY_ROUTING_DECISION`.
 - `stageStarted`/`stageCompleted`/`decisionMade` are each called exactly once per execution, for every configured
   streamer, with the state's `runId()`.
-- Any error while calling the chat provider (network error, unsupported model, provider exception, etc.) results in a
-  fallback `RoutingDecision.refuse(...)` whose `reason` starts with `"Classification unavailable: "` and includes the
-  original error message, and whose `extractedIntent` is the original `userMessage()` the stage does not throw for this
-  class of failure.
-- A response that is not valid/parseable JSON (or does not match the `RoutingDecision` shape) causes a
-  `ClassificationException` to propagate out of `execute` it is NOT converted into a fallback REFUSE decision.
+- Any error while calling the chat provider (network error, unsupported model, provider exception, etc.) or not
+  valid/parseable JSON (or does not match the `RoutingDecision` shape) results in a fallback
+  `RoutingDecision.refuse(...)` whose `reason` starts with `"Classification unavailable: "` and includes the original
+  error message, and whose `extractedIntent` is the original `userMessage()` the stage does not throw for this class of
+  failure.
 
 ## Failure modes
 
 - Provider/network failure (timeout, unknown provider, unsupported model, guardrail block, etc.) -> caught and turned
   into a fallback `REFUSE` decision so the workflow can still complete the turn.
-- Malformed/unparseable JSON from the model -> `ClassificationException` propagates uncaught, since this indicates a
-  contract violation the caller must handle explicitly rather than silently mask as a refusal.
+- Malformed/unparseable JSON from the model -> caught and turned the same as provider/network failure into a fallback
+  `REFUSE` decision so the workflow can still complete the turn.
 
 ## Edge Cases
 

@@ -59,8 +59,7 @@ public class AgentService implements AgentUseCase {
         try {
             agent.execute(runId, request);
             agentRunTracker.complete(runId);
-        } catch (Exception ex) {
-            // TODO: handle different workflow exceptions separately instead of one try/catch
+        } catch (RuntimeException ex) {
             agentRunTracker.fail(runId, ex.getMessage());
             throw ex;
         } finally {
@@ -104,15 +103,15 @@ public class AgentService implements AgentUseCase {
     }
 
     private Agent getAgent(UUID agentId) {
-        if (agentsMap.containsKey(agentId)) {
-            return agentsMap.get(agentId);
+        Agent agent = agentsMap.get(agentId);
+        if (agent == null) {
+            AgentDefinition agentDef = definitionStoragePort.findById(agentId);
+
+            if (!agentDef.details().enabled()) throw new AgentNotEnabledException(agentId);
+
+            return createAgent(agentDef);
         }
-
-        AgentDefinition agentDef = definitionStoragePort.findById(agentId);
-
-        if (!agentDef.details().enabled()) throw new AgentNotEnabledException(agentId);
-
-        return createAgent(agentDef);
+        return agentsMap.get(agentId);
     }
 
     private Agent createAgent(AgentDefinition definition) {

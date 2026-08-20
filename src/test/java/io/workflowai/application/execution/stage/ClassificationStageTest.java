@@ -4,8 +4,6 @@ import io.workflowai.application.execution.ChatProviderRegistry;
 import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
-import io.workflowai.domain.exceptions.ClassificationException;
-import io.workflowai.domain.workflow.DecisionMode;
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.StageId;
 import io.workflowai.domain.workflow.WorkflowState;
@@ -17,8 +15,9 @@ import java.util.List;
 import java.util.Map;
 
 import static io.workflowai.domain.agent.ChatProviderId.Ollama;
+import static io.workflowai.domain.workflow.DecisionMode.EXECUTE;
+import static io.workflowai.domain.workflow.DecisionMode.REFUSE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -60,7 +59,7 @@ class ClassificationStageTest {
         Map<String, Object> result = stage().execute(state);
 
         RoutingDecision decision = (RoutingDecision) result.get(WorkflowState.KEY_ROUTING_DECISION);
-        assertThat(decision.decisionMode()).isEqualTo(DecisionMode.EXECUTE);
+        assertThat(decision.decisionMode()).isEqualTo(EXECUTE);
         assertThat(decision.extractedIntent()).isEqualTo("answer a question");
 
         verify(streamer).stageStarted(state.runId(), StageId.CLASSIFICATION);
@@ -78,7 +77,7 @@ class ClassificationStageTest {
         Map<String, Object> result = stage().execute(state);
 
         RoutingDecision decision = (RoutingDecision) result.get(WorkflowState.KEY_ROUTING_DECISION);
-        assertThat(decision.decisionMode()).isEqualTo(DecisionMode.REFUSE);
+        assertThat(decision.decisionMode()).isEqualTo(REFUSE);
         assertThat(decision.reason()).contains("Classification unavailable: provider unreachable");
         assertThat(decision.extractedIntent()).isEqualTo("what's the weather");
 
@@ -88,13 +87,21 @@ class ClassificationStageTest {
     }
 
     @Test
-    void malformedClassificationResponsePropagatesClassificationException() {
+    void malformedClassificationResponseRefuseWithoutThrowing() {
         when(provider.call(any(ChatCompletionRequest.class))).thenReturn("not valid json");
 
         WorkflowState state = StagesUtil.state("what's the weather", false);
 
-        assertThatThrownBy(() -> stage().execute(state))
-                .isInstanceOf(ClassificationException.class);
+        Map<String, Object> result = stage().execute(state);
+
+        RoutingDecision decision = (RoutingDecision) result.get(WorkflowState.KEY_ROUTING_DECISION);
+        assertThat(decision.decisionMode()).isEqualTo(REFUSE);
+        assertThat(decision.reason()).contains("Classification unavailable: Unrecognized token");
+        assertThat(decision.extractedIntent()).isEqualTo("what's the weather");
+
+        verify(streamer).stageStarted(state.runId(), StageId.CLASSIFICATION);
+        verify(streamer).stageCompleted(state.runId(), StageId.CLASSIFICATION);
+        verify(streamer).decisionMade(state.runId(), decision);
     }
 
     private ClassificationStage stage() {

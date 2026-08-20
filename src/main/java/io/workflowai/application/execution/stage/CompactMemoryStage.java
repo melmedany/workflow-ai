@@ -76,7 +76,7 @@ public class CompactMemoryStage implements WorkflowStage {
                 agentMemoryStorage.replace(conversationId, agentId, compacted);
                 log.debug("[{}] Memory compacted for conversation [{}]", agentId, conversationId);
             }
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             log.warn("[{}] Memory compaction failed for conversation [{}]: {}", agentId, conversationId, ex.getMessage());
         }
     }

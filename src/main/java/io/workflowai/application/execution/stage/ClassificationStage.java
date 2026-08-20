@@ -3,7 +3,6 @@ package io.workflowai.application.execution.stage;
 import io.workflowai.application.execution.ChatProviderRegistry;
 import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
-import io.workflowai.domain.exceptions.ClassificationException;
 import io.workflowai.domain.workflow.RoutingDecision;
 import io.workflowai.domain.workflow.StageId;
 import io.workflowai.domain.workflow.WorkflowStage;
@@ -63,21 +62,10 @@ public class ClassificationStage implements WorkflowStage {
                 stageProperties.temperature(), CLASSIFICATION_SYSTEM_PROMPT, prompt, state.memoryContext());
         try {
             String jsonResponse = chatProviderRegistry.get(stageProperties.chatProviderId()).call(classifyRequest);
-            return parseRoutingDecision(state, jsonResponse);
-        } catch (ClassificationException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.warn("[{}] Classification call failed, defaulting to REFUSE: {}", state.agentProperties().id(), ex.getMessage());
-            return RoutingDecision.refuse("Classification unavailable: " + ex.getMessage(), state.userMessage());
-        }
-    }
-
-    private RoutingDecision parseRoutingDecision(WorkflowState state, String jsonResponse) {
-        try {
             return jsonMapper.readValue(jsonResponse, RoutingDecision.class);
-        } catch (Exception ex) {
-            throw new ClassificationException(state.agentProperties().id(),
-                    "Failed to parse routing decision from response: %s".formatted(jsonResponse), ex);
+        } catch (RuntimeException ex) {
+            log.warn("[{}] Classification call failed, defaulting to REFUSE: {}", state.agentProperties().id(), ex.getMessage());
+            return RoutingDecision.refuse("Classification unavailable: %s".formatted(ex.getMessage()), state.userMessage());
         }
     }
 }

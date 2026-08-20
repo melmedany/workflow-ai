@@ -7,8 +7,8 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
-import io.workflowai.domain.exceptions.ChatProviderCallException;
 import io.workflowai.application.port.out.ChatCompletionRequest;
+import io.workflowai.domain.exceptions.ChatProviderCallException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +28,7 @@ public abstract class AbstractOpenAiProvider extends AbstractChatProvider {
     private final double defaultTemperature;
 
     protected AbstractOpenAiProvider(InputGuardrail inputGuardrail, OutputGuardrail outputGuardrail,
-                                      String baseUrl, String apiKey, String defaultModel, double defaultTemperature) {
+                                     String baseUrl, String apiKey, String defaultModel, double defaultTemperature) {
         super(inputGuardrail, outputGuardrail);
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
@@ -57,39 +57,44 @@ public abstract class AbstractOpenAiProvider extends AbstractChatProvider {
         log.debug("Calling {} model [{}]", getId(), resolvedModel);
         try {
             return extractText(chatModel.chat(messages));
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             throw new ChatProviderCallException(getId(), "Sync call failed for model [%s]".formatted(resolvedModel), ex);
         }
     }
 
     @Override
     protected ChatModel buildChatModel(String model, double temperature) {
-        if (chatModelMap.containsKey(model)) return chatModelMap.get(model);
+        ChatModel chatModel = chatModelMap.get(model);
 
-        ChatModel chatModel = OpenAiChatModel.builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .modelName(model)
-                .temperature(temperature)
-                .build();
+        if (chatModel == null) {
+            chatModel = OpenAiChatModel.builder()
+                    .baseUrl(baseUrl)
+                    .apiKey(apiKey)
+                    .modelName(model)
+                    .temperature(temperature)
+                    .build();
 
-        chatModelMap.put(model, chatModel);
+            chatModelMap.put(model, chatModel);
+
+        }
 
         return chatModel;
     }
 
     @Override
     protected StreamingChatModel buildStreamingModel(String model, double temperature) {
-        if (streamingChatModelMap.containsKey(model)) return streamingChatModelMap.get(model);
+        StreamingChatModel streamingChatModel = streamingChatModelMap.get(model);
 
-        StreamingChatModel streamingChatModel = OpenAiStreamingChatModel.builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .modelName(model)
-                .temperature(temperature)
-                .build();
+        if (streamingChatModel == null) {
+            streamingChatModel = OpenAiStreamingChatModel.builder()
+                    .baseUrl(baseUrl)
+                    .apiKey(apiKey)
+                    .modelName(model)
+                    .temperature(temperature)
+                    .build();
 
-        streamingChatModelMap.put(model, streamingChatModel);
+            streamingChatModelMap.put(model, streamingChatModel);
+        }
 
         return streamingChatModel;
     }

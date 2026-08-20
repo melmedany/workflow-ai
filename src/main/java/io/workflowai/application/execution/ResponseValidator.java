@@ -32,7 +32,7 @@ public final class ResponseValidator {
         JsonNode node;
         try {
             node = jsonMapper.readTree(response);
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             return ValidationResult.invalid("Response is not a valid JSON object: %s".formatted(ex.getMessage()));
         }
         for (String field : contract.requiredFields()) {

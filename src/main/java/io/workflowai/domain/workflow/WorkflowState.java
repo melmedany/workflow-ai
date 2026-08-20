@@ -8,11 +8,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Plain, framework-free carrier for workflow state. Deliberately has no dependency on any graph
- * runtime: the LangGraph4j adapter translates its own state type into/out of this one at the
- * node boundary (see {@code adapters.outbound.runtime.langgraph4j}).
- */
 public class WorkflowState extends AgentState {
 
     public static final String KEY_RUN_ID = "runId";
