@@ -32,6 +32,8 @@ import tools.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static io.workflowai.adapter.in.rest.dto.AgentMapper.toAgentInfo;
 import static io.workflowai.adapter.in.rest.dto.AgentMapper.toConversationResponse;
@@ -128,8 +130,8 @@ public class AgentController {
             emitter.completeWithError(ex);
         });
 
-        Thread.startVirtualThread(() -> {
-            try {
+        try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+            executorService.submit(() -> {
                 if (newConversation) {
                     sendJson(emitter, CONVERSATION_CREATED, conversation);
                 }
@@ -139,12 +141,12 @@ public class AgentController {
                         event -> handleEvent(emitter, event)
                 );
                 emitter.complete();
-            } catch (Exception ex) {
-                log.warn("Chat execution failed for conversation [{}]: {}", conversationId, ex.getMessage());
-                sendError(emitter, ex.getMessage());
-                emitter.completeWithError(ex);
-            }
-        });
+            });
+        } catch (Exception ex) {
+            log.warn("Chat execution failed for conversation [{}]: {}", conversationId, ex.getMessage());
+            sendError(emitter, ex.getMessage());
+            emitter.completeWithError(ex);
+        }
 
         return ResponseEntity.ok(emitter);
     }

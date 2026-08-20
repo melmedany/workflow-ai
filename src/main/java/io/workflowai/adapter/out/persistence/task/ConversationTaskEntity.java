@@ -3,8 +3,6 @@ package io.workflowai.adapter.out.persistence.task;
 import io.workflowai.domain.task.TaskStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
@@ -23,7 +21,6 @@ import static io.workflowai.domain.task.ConversationTask.TaskSchedule;
 public class ConversationTaskEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "agent_id", nullable = false)
@@ -57,24 +54,24 @@ public class ConversationTaskEntity {
     protected ConversationTaskEntity() {
     }
 
-    public ConversationTaskEntity(UUID agentId, UUID conversationId, TaskDefinition definition, TaskSchedule schedule) {
+    public ConversationTaskEntity(UUID id, UUID agentId, UUID conversationId, TaskDefinition definition,
+                                  TaskSchedule schedule, String jobId) {
+        this.id = id;
         this.agentId = agentId;
         this.conversationId = conversationId;
         this.definition = definition;
         this.schedule = schedule;
+        this.jobId = jobId;
     }
 
-    public void update(String newInstruction, Instant newStartDateTime, String newDuration) {
+    public void update(String newInstruction, Instant newStartDateTime, String newDuration, String newJobId) {
         this.definition = new TaskDefinition(definition.name(), definition.intentKey(), newInstruction);
         this.schedule = new TaskSchedule(schedule.type(), newStartDateTime, newDuration, schedule.status());
+        this.jobId = newJobId;
     }
 
     public void updateStatus(TaskStatus newStatus) {
         this.schedule = new TaskSchedule(schedule.type(), schedule.startDateTime(), schedule.duration(), newStatus);
-    }
-
-    public void updateJobId(String jobId) {
-        this.jobId = jobId;
     }
 
     public void recordRun(UUID lastRunId) {

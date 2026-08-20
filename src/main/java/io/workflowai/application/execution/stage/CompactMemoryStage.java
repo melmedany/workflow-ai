@@ -42,12 +42,12 @@ public class CompactMemoryStage implements WorkflowStage {
 
     @Override
     public Map<String, Object> execute(WorkflowState state) {
-        workflowEventStreamers.forEach(s -> s.stageStarted(state.runId(), StageId.COMPACT_MEMORY));
-
         AgentProperties agentProperties = state.agentProperties();
         if (!agentProperties.memoryEnabled()) {
             return Map.of();
         }
+
+        workflowEventStreamers.forEach(s -> s.stageStarted(state.runId(), StageId.COMPACT_MEMORY));
 
         String previousMemory = state.memoryContext();
         String userMessage = state.userMessage();

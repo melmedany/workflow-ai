@@ -52,15 +52,15 @@ public class SelfVerificationStage implements WorkflowStage {
         }
 
         if (state.retried()) {
-            log.warn("[{}] Self-verification failed twice ({}) — returning best effort",
+            log.warn("[{}] Self-verification failed twice ({}) - returning best effort",
                     agentProperties.id(), state.validationFailureReason());
-            String failureReason = "Response still invalid after retry (%s) — returning best effort".formatted(state.validationFailureReason());
+            String failureReason = "Response still invalid after retry (%s) - returning best effort".formatted(state.validationFailureReason());
             workflowEventStreamers.forEach(s -> s.stageFailed(state.runId(), StageId.SELF_VERIFICATION, failureReason));
             String finalResponse = persistResponseStage.finalizeResponse(state, state.generatedResponse().orElse(""));
             return Map.of(WorkflowState.KEY_GENERATED_RESPONSE, finalResponse, WorkflowState.KEY_VALIDATION_PASSED, true);
         }
 
-        log.debug("[{}] Self-verification failed ({}) — attempting one retry",
+        log.debug("[{}] Self-verification failed ({}) - attempting one retry",
                 agentProperties.id(), state.validationFailureReason());
 
         String retryPrompt = WorkflowPrompts.retryPrompt(state.userMessage(), state.generatedResponse().orElse(""), state.validationFailureReason());
@@ -81,9 +81,9 @@ public class SelfVerificationStage implements WorkflowStage {
             log.debug("[{}] Retry passed validation", agentProperties.id());
             workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.SELF_VERIFICATION));
         } else {
-            log.warn("[{}] Retry still invalid ({}) — returning latest retry result", agentProperties.id(), retryValidation.reason());
+            log.warn("[{}] Retry still invalid ({}) - returning latest retry result", agentProperties.id(), retryValidation.reason());
             workflowEventStreamers.forEach(s -> s.stageFailed(state.runId(), StageId.SELF_VERIFICATION,
-                    "Retry still invalid (%s) — returning latest retry result".formatted(retryValidation.reason())));
+                    "Retry still invalid (%s) - returning latest retry result".formatted(retryValidation.reason())));
         }
 
         String finalResponse = persistResponseStage.finalizeResponse(state, retryResponse);

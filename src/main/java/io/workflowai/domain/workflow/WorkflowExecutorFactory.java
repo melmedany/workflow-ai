@@ -98,7 +98,7 @@ public class WorkflowExecutorFactory {
 
     /**
      * STANDARD: classification, self-verification, and memory compaction. No dedicated input-guardrail
-     * node — input guardrailing happens inside the ChatProvider call that CLASSIFICATION/
+     * node input guardrailing happens inside the ChatProvider call that CLASSIFICATION/
      * EXECUTE_WORKFLOW makes.
      * <br>
      * START -> PERSIST_USER_MESSAGE -> LOAD_MEMORY -> (decision branches)

@@ -1,5 +1,6 @@
 package io.workflowai.application.execution.stage;
 
+import io.workflowai.application.execution.ChatProviderRegistry;
 import io.workflowai.application.port.out.ChatCompletionRequest;
 import io.workflowai.application.port.out.ChatProvider;
 import io.workflowai.domain.workflow.DecisionMode;
@@ -8,11 +9,15 @@ import io.workflowai.domain.workflow.WorkflowState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.util.List;
 import java.util.Map;
 
+import static io.workflowai.application.execution.stage.StageSettings.StageSetting;
 import static io.workflowai.domain.agent.ChatProviderId.Ollama;
 import static io.workflowai.domain.task.ConversationTask.TaskSchedule.ScheduleType.RECURRING;
+import static io.workflowai.domain.workflow.StageId.CLASSIFICATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -128,13 +133,17 @@ class ClassificationStageSchedulingTest {
         return captor.getValue();
     }
 
-    private RoutingDecision classify(
-            String userMessage,
-            boolean schedulingRequested) {
-
-        Map<String, Object> result = StagesUtil.classificationStage(provider)
-                .execute(StagesUtil.state(userMessage, schedulingRequested));
-
+    private RoutingDecision classify(String userMessage, boolean schedulingRequested) {
+        Map<String, Object> result = stage().execute(StagesUtil.state(userMessage, schedulingRequested));
         return (RoutingDecision) result.get(WorkflowState.KEY_ROUTING_DECISION);
+    }
+
+    private ClassificationStage stage() {
+        StageSettings settings = new StageSettings(List.of(
+                new StageSetting(CLASSIFICATION, Ollama, "ollama-model", 0.1)));
+
+        ChatProviderRegistry registry = new ChatProviderRegistry(List.of(provider));
+
+        return new ClassificationStage(registry, settings, JsonMapper.builder().build(), List.of());
     }
 }

@@ -22,7 +22,7 @@ public record ConversationTask(
 
     public static ConversationTask newTask(UUID agentId, UUID conversationId, TaskDefinition definition,
                                            TaskSchedule schedule, TaskRunInfo runInfo) {
-        return new ConversationTask(null, agentId, conversationId, definition, schedule, runInfo, null, null);
+        return new ConversationTask(UUID.randomUUID(), agentId, conversationId, definition, schedule, runInfo, null, null);
     }
 
     public ConversationTask update(String instruction, Instant startDateTime, String duration) {
@@ -74,7 +74,17 @@ public record ConversationTask(
         }
 
         public enum ScheduleType {
-            ONCE, RECURRING
+            ONCE, RECURRING, UNDEFINED;
+
+            public static ScheduleType fromString(String type) {
+                if (type == null) return UNDEFINED;
+
+                return switch (type.toUpperCase()) {
+                    case "ONCE" -> ONCE;
+                    case "RECURRING" -> RECURRING;
+                    default -> UNDEFINED;
+                };
+            }
         }
     }
 

@@ -21,7 +21,7 @@ public class SSEWorkflowEventStreamer implements WorkflowEventStreamer {
 
     /**
      * Simple in-memory consumer store keyed by runId, NOT conversationId. Two concurrent invocations for the
-     * same conversation (double-submit, caller-side retry, etc.) must not share a consumer —
+     * same conversation (double-submit, caller-side retry, etc.) must not share a consumer
      * keying by conversationId previously let one run's consumer be overwritten/removed by
      * another run of the same conversation, causing cross-talk or a NoSuchElement on consumer(state).
      */

@@ -49,7 +49,7 @@ public class ClassificationStage implements WorkflowStage {
         workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.CLASSIFICATION));
         workflowEventStreamers.forEach(s -> s.decisionMade(state.runId(), decision));
 
-        log.debug("[{}] Classification result: {} — {}", state.agentProperties().id(), decision.decisionMode(), decision.reason());
+        log.debug("[{}] Classification result: {} - {}", state.agentProperties().id(), decision.decisionMode(), decision.reason());
 
         return Map.of(WorkflowState.KEY_ROUTING_DECISION, decision);
     }

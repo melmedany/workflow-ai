@@ -12,9 +12,9 @@ import java.util.List;
 /**
  * Shared by every stage that produces a final response (EXECUTE_WORKFLOW/SELF_VERIFICATION and the
  * GENERATE_CLARIFICATION/REDIRECT/GREETING/REFUSAL branches). The candidate text has already passed
- * through the output guardrail — either automatically inside the {@code ChatProvider} call that
+ * through the output guardrail. Either automatically inside the {@code ChatProvider} call that
  * produced it, or explicitly for the one path that doesn't call a model (see
- * {@link GenerateClarificationStage}) — so this stage only persists and emits, it does not re-check.
+ * {@link GenerateClarificationStage}). So this stage only persists and emits, it does not re-check.
  * Persisted before a single token reaches the client: if the SSE connection drops while streaming,
  * the response is already durably saved.
  */

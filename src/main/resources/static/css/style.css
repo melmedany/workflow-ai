@@ -1099,7 +1099,7 @@ textarea::placeholder {
 
 .diagram-btn:hover {
     background: var(--surface-hover);
-    color: var(--text);          /* was var(--surface) — invisible in dark mode */
+    color: var(--text);          /* was var(--surface) invisible in dark mode */
 }
 
 .diagram-hint {

@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -27,8 +28,9 @@ public class WorkflowExecutor {
 
     public WorkflowExecutionResult execute(Map<String, Object> initialState) {
         CompletableFuture<Void> future = null;
-        try {
-            future = CompletableFuture.runAsync(() -> graph.invoke(initialState), Executors.newVirtualThreadPerTaskExecutor());
+
+        try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+            future = CompletableFuture.runAsync(() -> graph.invoke(initialState), executorService);
             future.get(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             return WorkflowExecutionResult.completed();
         } catch (TimeoutException ex) {

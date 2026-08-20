@@ -1,10 +1,10 @@
 package io.workflowai.application.execution.stage;
 
-import io.workflowai.domain.workflow.WorkflowStage;
-import io.workflowai.domain.workflow.WorkflowState;
-import io.workflowai.domain.workflow.StageId;
 import io.workflowai.application.port.out.AgentMemoryStorage;
 import io.workflowai.application.port.out.WorkflowEventStreamer;
+import io.workflowai.domain.workflow.StageId;
+import io.workflowai.domain.workflow.WorkflowStage;
+import io.workflowai.domain.workflow.WorkflowState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,15 +30,17 @@ public class LoadMemoryStage implements WorkflowStage {
 
     @Override
     public Map<String, Object> execute(WorkflowState state) {
+        if (!state.agentProperties().memoryEnabled()) {
+            return Map.of(WorkflowState.KEY_MEMORY_CONTEXT, "");
+        }
+
         workflowEventStreamers.forEach(s -> s.stageStarted(state.runId(), StageId.LOAD_MEMORY));
 
-        String memoryContext = "";
-        if (state.agentProperties().memoryEnabled()) {
-            memoryContext = agentMemoryStorage
-                    .getMemory(state.conversationId(), state.agentProperties().id())
-                    .orElse("");
-            log.debug("[{}] Loaded compact memory ({} chars)", state.agentProperties().id(), memoryContext.length());
-        }
+        String memoryContext;
+        memoryContext = agentMemoryStorage
+                .getMemory(state.conversationId(), state.agentProperties().id())
+                .orElse("");
+        log.debug("[{}] Loaded compact memory ({} chars)", state.agentProperties().id(), memoryContext.length());
 
         workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.LOAD_MEMORY));
         return Map.of(WorkflowState.KEY_MEMORY_CONTEXT, memoryContext);

@@ -25,7 +25,7 @@ async function init() {
         const agent = await apiGet(`${agentId}`);
         const name = agent.displayName || (typeof agent.id === 'string' ? agent.id : agent.id?.name) || agentId;
 
-        document.title = 'Workflow AI — ' + name;
+        document.title = 'Workflow AI - ' + name;
         document.getElementById('agent-name').textContent = name;
         document.getElementById('agent-desc').textContent = agent.description || '';
         document.getElementById('agent-avatar').textContent = name.charAt(0);
@@ -195,7 +195,7 @@ function renderTask(t) {
 
     const info = document.createElement('div');
     info.className = 'task-info';
-    const nextRun = t.nextRunAt ? dateFns.formatRelative(new Date(t.nextRunAt), new Date()) : '—';
+    const nextRun = t.nextRunAt ? dateFns.formatRelative(new Date(t.nextRunAt), new Date()) : '-';
     const lastRun = t.lastRunStatus ? `${t.lastRunStatus}${t.lastRunAt ? ' at ' + dateFns.formatRelative(new Date(t.lastRunAt), new Date()) : ''}` : 'Never run';
     const schedule = t.scheduleType === 'ONCE' ? 'Once ' + dateFns.formatRelative(t.nextRunAt, new Date()) : dateFns.formatDuration(t.duration) + dateFns.format(new Date(t.startDateTime), "'starting' EEEE do MMMM 'at' HH:mm")
     info.innerHTML = `
@@ -310,6 +310,7 @@ async function sendMessage() {
                 switch (EventType[eventType]) {
                     case EventType.TOKEN:
                         fullText += data;
+                        await new Promise(r => setTimeout(r, 40))
                         content.innerHTML = marked.parse(fullText);
                         scrollToBottom();
                         break;

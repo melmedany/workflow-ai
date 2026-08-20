@@ -54,14 +54,15 @@ public class ExecuteWorkflowStage implements WorkflowStage {
 
         String response;
         try {
-            // Buffered, not streamed live. Note this is only a *draft* — SELF_VERIFICATION decides
+            // Buffered, not streamed live. Note this is only a *draft*. SELF_VERIFICATION decides
             // whether it's final or needs a retry, so persist/stream must not happen here.
             response = chatProviderRegistry.get(agentProperties.chatProviderId()).stream(request, _ -> {
             });
         } catch (GuardrailBlockedException ex) {
             // Input was blocked at the provider boundary. A retry through SELF_VERIFICATION would
             // hit the exact same block, so short-circuit straight to a final, already-safe response.
-            log.warn("[{}] Input guardrail blocked {} request — returning fallback", state.triggerSource(), agentProperties.id());
+            log.warn("[{}] Input guardrail blocked {} request - returning fallback", state.triggerSource(), agentProperties.id());
+            workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.EXECUTE_WORKFLOW));
             return Map.of(
                     WorkflowState.KEY_GENERATED_RESPONSE, agentProperties.workflowPolicy().failedToProcessMessage(),
                     WorkflowState.KEY_VALIDATION_PASSED, true);

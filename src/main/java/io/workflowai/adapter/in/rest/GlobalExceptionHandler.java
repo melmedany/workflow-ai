@@ -67,7 +67,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(WorkflowExecutionException.class)
     public ResponseEntity<Map<String, Object>> handleWorkflowExecution(
             WorkflowExecutionException ex, WebRequest request) {
-        log.warn("Workflow execution error for agent: {}", ex.getMessage());
+        log.error("Workflow execution error for agent: {}", ex.getMessage(), ex);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Workflow execution failed", request);
     }
 
@@ -114,7 +114,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, WebRequest request) {
         // TODO handle `Unhandled exception [HttpMessageNotWritableException]: No converter for [class java.util.LinkedHashMap] with preset Content-Type 'text/event-stream'`
-        log.warn("Unhandled exception [{}]: {}", ex.getClass().getSimpleName(), ex.getMessage());
+        log.error("Unhandled exception [{}]: ", ex.getClass().getSimpleName(), ex);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", request);
     }
 

@@ -24,7 +24,7 @@ public class ScheduledAgentTaskRunner {
     }
 
     public void run(UUID agentId, UUID conversationId, UUID taskId) {
-        ConversationTask task = storage.findActiveTask(agentId, conversationId, taskId).orElse(null);
+        ConversationTask task = storage.findTaskWithStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE).orElse(null);
         if (task == null || task.schedule().status() != TaskStatus.ACTIVE) {
             log.debug("Skipping scheduled task [{}], not active", taskId);
             return;

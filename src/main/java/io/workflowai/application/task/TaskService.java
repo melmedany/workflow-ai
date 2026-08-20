@@ -7,6 +7,7 @@ import io.workflowai.domain.exceptions.TaskNotFoundException;
 import io.workflowai.domain.task.ConversationTask;
 import io.workflowai.domain.task.ConversationTask.TaskDefinition;
 import io.workflowai.domain.task.TaskStatus;
+import org.jobrunr.jobs.states.IllegalJobStateChangeException;
 import org.jobrunr.storage.JobNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,42 +65,42 @@ public class TaskService implements TaskUseCase {
 
         TaskDefinition definition = new TaskDefinition(instruction, intentKey, instruction); // using instruction as an initial task name
         TaskSchedule schedule = new TaskSchedule(scheduleType, startDateTime, duration, TaskStatus.ACTIVE);
-        TaskRunInfo runInfo = new TaskRunInfo(null,null, null);
+        TaskRunInfo runInfo = new TaskRunInfo(null, null, null);
 
-        ConversationTask task = storage.create(ConversationTask.newTask(agentId, conversationId, definition, schedule, runInfo));
+        ConversationTask task = ConversationTask.newTask(agentId, conversationId, definition, schedule, runInfo);
+
         String jobId = scheduler.schedule(task);
-        storage.updateJobId(agentId, conversationId, task.id(), jobId);
-
-        return task.withJobId(jobId);
+        return storage.create(task.withJobId(jobId));
     }
 
     private ConversationTask update(ConversationTask existingTask, String instruction, Instant startDateTime, String duration) {
-        ConversationTask updatedTask = storage.update(existingTask.update(instruction, startDateTime, duration));
+        ConversationTask updatedTask = existingTask.update(instruction, startDateTime, duration);
+
         String jobId = scheduler.reschedule(updatedTask);
-        storage.updateJobId(updatedTask.agentId(), updatedTask.conversationId(), updatedTask.id(), jobId);
 
         return storage.update(updatedTask.withJobId(jobId));
     }
 
     @Override
     public void pause(UUID agentId, UUID conversationId, UUID taskId) {
-        ConversationTask task = findTask(agentId, conversationId, taskId);
-        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.PAUSED);
+        ConversationTask task = findTaskWithStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE);
         scheduler.pause(task);
+        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.PAUSED);
     }
 
     @Override
     public void resume(UUID agentId, UUID conversationId, UUID taskId) {
-        ConversationTask task = findTask(agentId, conversationId, taskId);
-        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE);
+        ConversationTask task = findTaskWithStatus(agentId, conversationId, taskId, TaskStatus.PAUSED);
         scheduler.resume(task.withStatus(TaskStatus.ACTIVE));
+        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.ACTIVE);
     }
 
     @Override
     public void cancel(UUID agentId, UUID conversationId, UUID taskId) {
-        ConversationTask task = findTask(agentId, conversationId, taskId);
-        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.CANCELLED);
+        ConversationTask task = storage.findTask(agentId, conversationId, taskId)
+                .orElseThrow(() -> new TaskNotFoundException(taskId));
         scheduler.cancel(task);
+        storage.updateStatus(agentId, conversationId, taskId, TaskStatus.CANCELLED);
     }
 
     @Override
@@ -108,13 +109,15 @@ public class TaskService implements TaskUseCase {
 
         for (ConversationTask task : tasks) {
             try {
-                cancel(agentId, conversationId, task.id());
+                scheduler.cancel(task);
+                storage.updateStatus(agentId, conversationId, task.id(), TaskStatus.CANCELLED);
                 log.debug("Cancelled task {} - jobId {}", task.id(), task.runInfo().jobId());
-            } catch (JobNotFoundException | TaskNotFoundException ex) {
+            } catch (JobNotFoundException | IllegalJobStateChangeException ex) {
+                log.warn("Failed to cancel job {}", task.id(), ex);
+            } catch (TaskNotFoundException ex) {
                 log.warn("Failed to cancel task {}", task.id(), ex);
             }
         }
-
     }
 
     @Override
@@ -122,8 +125,8 @@ public class TaskService implements TaskUseCase {
         return storage.findByConversation(agentId, conversationId);
     }
 
-    private ConversationTask findTask(UUID agentId, UUID conversationId, UUID taskId) {
-        return storage.findActiveTask(agentId, conversationId, taskId)
+    private ConversationTask findTaskWithStatus(UUID agentId, UUID conversationId, UUID taskId, TaskStatus status) {
+        return storage.findTaskWithStatus(agentId, conversationId, taskId, status)
                 .orElseThrow(() -> new TaskNotFoundException(taskId));
     }
 

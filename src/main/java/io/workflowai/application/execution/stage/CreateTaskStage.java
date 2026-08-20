@@ -59,9 +59,18 @@ public class CreateTaskStage implements WorkflowStage {
         }
 
         try {
+            ScheduleType scheduleType = ScheduleType.fromString(decision.scheduleType());
+
+            if (scheduleType == ScheduleType.UNDEFINED) {
+                return clarify(state, "Schedule type is missing", decision.extractedIntent());
+            }
+
+            if (decision.startDateTime() == null) {
+                return clarify(state, "startDateTime is missing", decision.extractedIntent());
+            }
+
             ConversationTask task = taskUseCase.createOrUpdate(state.agentProperties().id(), state.conversationId(),
-                    instruction, ScheduleType.valueOf(decision.scheduleType()), Instant.parse(decision.startDateTime()),
-                    decision.duration());
+                    instruction, scheduleType, Instant.parse(decision.startDateTime()), decision.duration());
 
             workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.CREATE_TASK));
             String finalResponse = persistResponseStage.finalizeResponse(state, confirmationMessage(task));
@@ -82,7 +91,7 @@ public class CreateTaskStage implements WorkflowStage {
 
     private Map<String, Object> clarify(WorkflowState state, String reason, String extractedIntent) {
         workflowEventStreamers.forEach(s -> s.stageCompleted(state.runId(), StageId.CREATE_TASK));
-        String question = "I couldn't understand that schedule — could you restate when this should run (e.g. \"every day at 9am\")?";
+        String question = "I couldn't understand that schedule. Could you restate when this should run (e.g. \"every day at 9am\")?";
         return Map.of(WorkflowState.KEY_ROUTING_DECISION, RoutingDecision.clarify(reason, extractedIntent, question));
     }
 

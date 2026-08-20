@@ -83,7 +83,7 @@ public abstract class AbstractChatProvider implements ChatProvider {
 
     private String applyOutputGuardrail(String text) {
         if (!outputGuardrail.validate(AiMessage.from(text)).isSuccess()) {
-            log.warn("[{}] Output guardrail blocked generated response — matched blocklist term", getId());
+            log.warn("[{}] Output guardrail blocked generated response matched blocklist term", getId());
             return WorkflowPrompts.GUARDRAIL_FALLBACK_MESSAGE;
         }
         return text;

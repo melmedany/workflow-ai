@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import static io.workflowai.application.execution.stage.StageSettings.StageSetting;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.argThat;
@@ -35,7 +36,7 @@ class WorkflowStagesTest {
     private final ConversationMessageStorage messages = mock();
     private final AgentMemoryStorage memory = mock();
 
-    private final StageSettings stageSettings = StagesUtil.stageSettings();
+    private final StageSettings stageSettings = stageSettings();
 
     private final PersistResponseStage persistResponseStage =
             new PersistResponseStage(messages, List.of());
@@ -223,11 +224,22 @@ class WorkflowStagesTest {
         return captor.getValue();
     }
 
-    private void assertRequest(
-            ChatProvider provider,
-            String model,
-            double temperature) {
+    private StageSettings stageSettings() {
+        return new StageSettings(List.of(
+                stageSetting(StageId.CLASSIFICATION, ChatProviderId.Ollama, "classification-model", 0.1),
+                stageSetting(StageId.GENERATE_CLARIFICATION, ChatProviderId.Bonzai, "clarification-model", 0.3),
+                stageSetting(StageId.GENERATE_REDIRECT, ChatProviderId.OpenAI, "redirect-model", 0.4),
+                stageSetting(StageId.GENERATE_GREETING, ChatProviderId.Anthropic, "greeting-model", 0.5),
+                stageSetting(StageId.GENERATE_REFUSAL, ChatProviderId.Bonzai, "refusal-model", 0.7),
+                stageSetting(StageId.COMPACT_MEMORY, ChatProviderId.Ollama, "memory-model", 0.6)));
+    }
 
+    private StageSetting stageSetting(StageId stageId, ChatProviderId providerId,
+                                                    String model, double temperature) {
+        return new StageSetting(stageId, providerId, model, temperature);
+    }
+
+    private void assertRequest(ChatProvider provider, String model, double temperature) {
         verify(provider).stream(
                 argThat(request ->
                         request.model().equals(model)

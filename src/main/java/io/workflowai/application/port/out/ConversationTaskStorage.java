@@ -13,13 +13,13 @@ public interface ConversationTaskStorage {
 
     ConversationTask update(ConversationTask task);
 
-    Optional<ConversationTask> findActiveTask(UUID agentId, UUID conversationId, UUID taskId);
+    Optional<ConversationTask> findTaskWithStatus(UUID agentId, UUID conversationId, UUID taskId, TaskStatus status);
+
+    Optional<ConversationTask> findTask(UUID agentId, UUID conversationId, UUID taskId);
 
     List<ConversationTask> findByConversation(UUID agentId, UUID conversationId);
 
     void updateStatus(UUID agentId, UUID conversationId, UUID taskId, TaskStatus status);
-
-    void updateJobId(UUID agentId, UUID conversationId, UUID taskId, String jobId);
 
     void updateAfterRun(UUID agentId, UUID conversationId, UUID taskId, UUID lastRunId);
 }
