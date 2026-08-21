@@ -32,6 +32,7 @@ class WorkflowStagesTest {
     private final ChatProvider openAi = mock();
     private final ChatProvider anthropic = mock();
     private final ChatProvider bonzai = mock();
+    private final ChatProvider grok = mock();
 
     private final ConversationMessageStorage messages = mock();
     private final AgentMemoryStorage memory = mock();
@@ -49,6 +50,7 @@ class WorkflowStagesTest {
         when(providers.get(ChatProviderId.OpenAI)).thenReturn(openAi);
         when(providers.get(ChatProviderId.Anthropic)).thenReturn(anthropic);
         when(providers.get(ChatProviderId.Bonzai)).thenReturn(bonzai);
+        when(providers.get(ChatProviderId.Grok)).thenReturn(grok);
 
         when(ollama.call(any(ChatCompletionRequest.class))).thenReturn("Ollama response");
         when(openAi.call(any(ChatCompletionRequest.class))).thenReturn("OpenAI response");
@@ -229,6 +231,7 @@ class WorkflowStagesTest {
                 stageSetting(StageId.CLASSIFICATION, ChatProviderId.Ollama, "classification-model", 0.1),
                 stageSetting(StageId.GENERATE_CLARIFICATION, ChatProviderId.Bonzai, "clarification-model", 0.3),
                 stageSetting(StageId.GENERATE_REDIRECT, ChatProviderId.OpenAI, "redirect-model", 0.4),
+                stageSetting(StageId.SELF_VERIFICATION, ChatProviderId.Grok, "verification-model", 0.4),
                 stageSetting(StageId.GENERATE_GREETING, ChatProviderId.Anthropic, "greeting-model", 0.5),
                 stageSetting(StageId.GENERATE_REFUSAL, ChatProviderId.Bonzai, "refusal-model", 0.7),
                 stageSetting(StageId.COMPACT_MEMORY, ChatProviderId.Ollama, "memory-model", 0.6)));
