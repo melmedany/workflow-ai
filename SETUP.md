@@ -42,6 +42,7 @@ src/main/java/io/workflowai
 │       │   └── provider                AbstractChatProvider, AbstractOpenAiProvider
 │       │       ├── anthropic
 │       │       ├── bonzai
+│       │       ├── grok
 │       │       ├── ollama
 │       │       └── openai
 │       ├── persistence                 storage adapters implementing the outbound ports
