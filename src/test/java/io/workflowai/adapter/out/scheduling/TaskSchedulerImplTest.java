@@ -81,7 +81,7 @@ class TaskSchedulerImplTest {
         scheduler.schedule(task);
 
         verify(jobScheduler).<ScheduledAgentTaskRunner>scheduleRecurrently(eq(task.id().toString()),
-                eq("30 9-23/2 * * *"), any(IocJobLambda.class));
+                eq("30 11-23/2 * * *"), any(IocJobLambda.class));
     }
 
     @Test

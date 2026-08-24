@@ -3,6 +3,7 @@ package io.workflowai.domain.task;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.Period;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAmount;
 import java.util.UUID;
@@ -46,10 +47,10 @@ public record ConversationTask(
     }
 
     public Instant nextRunAt() {
-        if (schedule.type() == ONCE) return schedule.startDateTime.plus(schedule.parsedDuration());
+        if (schedule.type() == ONCE) return schedule.plusDuration(schedule.startDateTime);
 
-        return runInfo.lastRunAt != null ? runInfo.lastRunAt.plus(schedule.parsedDuration()) :
-                schedule.startDateTime.plus(schedule.parsedDuration());
+        return runInfo.lastRunAt != null ? schedule.plusDuration(runInfo.lastRunAt)
+                : schedule.plusDuration(schedule.startDateTime);
     }
 
     public record TaskDefinition(String name, String intentKey, String instruction) {
@@ -71,6 +72,14 @@ public record ConversationTask(
             } catch (DateTimeParseException e) {
                 throw new IllegalArgumentException("Failed to parse duration string: %s".formatted(duration), e);
             }
+        }
+
+        public Instant plusDuration(Instant base) {
+            TemporalAmount amount = parsedDuration();
+            if (amount instanceof Period period) {
+                return base.atZone(ZoneId.systemDefault()).plus(period).toInstant();
+            }
+            return base.plus(amount);
         }
 
         public enum ScheduleType {

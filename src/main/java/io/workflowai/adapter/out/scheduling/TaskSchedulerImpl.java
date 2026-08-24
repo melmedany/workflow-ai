@@ -63,11 +63,10 @@ public class TaskSchedulerImpl implements TaskScheduler {
         }
     }
 
-
-    public String scheduleOnce(ConversationTask task) {
-        Instant scheduleAt = task.schedule().startDateTime() != null ?
-                task.schedule().startDateTime().plus(task.schedule().parsedDuration()) :
-                Instant.now().plus(task.schedule().parsedDuration());
+    private String scheduleOnce(ConversationTask task) {
+        Instant scheduleAt = task.schedule().startDateTime() != null
+                ? task.schedule().plusDuration(task.schedule().startDateTime())
+                : task.schedule().plusDuration(Instant.now());
 
         return jobScheduler.<ScheduledAgentTaskRunner>schedule(
                         task.id(), scheduleAt,
@@ -75,8 +74,9 @@ public class TaskSchedulerImpl implements TaskScheduler {
                 .asUUID().toString();
     }
 
-    public String scheduleRecurrently(ConversationTask task) {
-        Instant scheduleAt = task.schedule().startDateTime() != null ? task.schedule().startDateTime() : Instant.now();
+    private String scheduleRecurrently(ConversationTask task) {
+        Instant scheduleAt = task.schedule().startDateTime() != null ?
+                task.schedule().plusDuration(task.schedule().startDateTime()) : Instant.now();
 
         String cronExpression;
         if (task.schedule().parsedDuration() instanceof Period p) {
